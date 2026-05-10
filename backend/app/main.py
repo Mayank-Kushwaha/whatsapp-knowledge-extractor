@@ -1,11 +1,19 @@
 """FastAPI application entry point with CORS and health endpoint."""
 
+import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import FRONTEND_ORIGIN, MEDIA_DIR
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager
@@ -23,6 +31,17 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# Include API routers
+# ---------------------------------------------------------------------------
+from app.api.upload import router as upload_router
+from app.api.chats import router as chats_router
+from app.api.messages import router as messages_router
+
+app.include_router(upload_router)
+app.include_router(chats_router)
+app.include_router(messages_router)
 
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origin

@@ -1,0 +1,13 @@
+[15/03/2024, 09:42:33] Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Tap to learn more.
+[15/03/2024, 09:43:00] John: Hey, check out this article https://example.com/article
+[15/03/2024, 09:43:30] Jane: Thanks! I'll read it later
+[15/03/2024, 09:44:00] John: Also found this video
+It's really interesting
+[15/03/2024, 09:44:30] Jane: This message was deleted
+[15/03/2024, 09:45:00] John: <Media omitted>
+[15/03/2024, 09:45:30] Jane: Got it! Let me forward something
+[15/03/2024, 09:46:00] Jane: Remember to check the document.pdf (file attached)
+[15/03/2024, 09:46:30] John: Sure, noted! Important meeting tomorrow at 10am
+[15/03/2024, 09:47:00] Jane: Yes, don't forget to bring the presentation
+[15/03/2024, 09:47:30] John: Will do 👍
+[15/03/2024, 09:48:00] Jane: See you then!<This message was edited>

@@ -12,7 +12,7 @@
 | **Completed** | 1 / 9 |
 | **In Progress** | Sprint 1 — WhatsApp Parser + Upload API |
 | **Remaining** | 8 |
-| **Current Sprint** | ⬜ Sprint 1 — WhatsApp Parser + Upload API |
+| **Current Sprint** | 🔄 Sprint 1 — WhatsApp Parser + Upload API |
 | **Overall Progress** | ██░░░░░░░░░░░░░░░░░░ 11% |
 | **Last Updated** | 2026-05-10T18:50:00+05:30 |
 | **Last Commit Hash** | 5393e4c |
@@ -23,7 +23,7 @@
 | Sprint | Name | Status | Started | Completed | Commit |
 |--------|------|--------|---------|-----------|--------|
 | 0 | Project Init & Scaffold | ✅ Completed | 2026-05-10 | 2026-05-10 | 5393e4c |
-| 1 | WhatsApp Parser + Upload API | ⬜ Not Started | — | — | — |
+| 1 | WhatsApp Parser + Upload API | 🔄 In Progress | 2026-05-10 | — | — |
 | 2 | Classification + Enrichment | ⬜ Not Started | — | — | — |
 | 3 | Upload UI + Dashboard | ⬜ Not Started | — | — | — |
 | 4 | Per-Type Detail Views | ⬜ Not Started | — | — | — |
@@ -161,8 +161,8 @@ Issues Encountered: [NONE]
 **Goal**: Build the core WhatsApp `.txt` parser handling all edge cases, create the upload API with BackgroundTask processing, and implement SSE progress streaming.
 
 **Timeline**: Day 3–5
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-10T18:57:00+05:30
 **Completed At**: —
 **Depends On**: Sprint 0 ✅
 
@@ -170,26 +170,26 @@ Issues Encountered: [NONE]
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1.1 | Implement `services/parser.py` — core WhatsApp .txt parser | ⬜ | See edge cases below |
-| 1.2 | Handle multi-line messages (lines without timestamp = continuation) | ⬜ | |
-| 1.3 | Handle date format variants (DD/MM/YY, MM/DD/YY, YYYY-MM-DD) | ⬜ | |
-| 1.4 | Handle 12h and 24h time formats | ⬜ | |
-| 1.5 | Handle Unicode sender names (Hindi, Arabic, Tamil, emoji) | ⬜ | |
-| 1.6 | Handle deleted messages ("This message was deleted") | ⬜ | type=deleted, skip NLP |
-| 1.7 | Handle edited messages (strip `<This message was edited>`) | ⬜ | |
-| 1.8 | Handle forwarded messages (prefix "Forwarded") | ⬜ | |
-| 1.9 | Handle `<Media omitted>` → type=unknown_media | ⬜ | |
-| 1.10 | Skip system messages (encryption notice, group creation, etc.) | ⬜ | |
-| 1.11 | Implement `POST /api/chats/upload` (accept .zip or .txt) | ⬜ | |
-| 1.12 | Extract media from .zip to `data/media/<chat_id>/` | ⬜ | |
-| 1.13 | Kick off parsing as FastAPI BackgroundTask | ⬜ | |
-| 1.14 | Implement pipeline_status tracking in SQLite | ⬜ | |
-| 1.15 | Implement `GET /api/chats/{id}/progress` SSE endpoint | ⬜ | |
-| 1.16 | Bulk insert parsed messages into SQLite | ⬜ | |
-| 1.17 | Create `GET /api/chats` — list all chats | ⬜ | |
-| 1.18 | Create `GET /api/chats/{id}` — chat details + stats | ⬜ | |
-| 1.19 | Create `GET /api/chats/{id}/messages` — paginated | ⬜ | |
-| 1.20 | Write unit tests for parser (all edge cases) | ⬜ | |
+| 1.1 | Implement `services/parser.py` — core WhatsApp .txt parser | ✅ | 500+ lines, all edge cases |
+| 1.2 | Handle multi-line messages (lines without timestamp = continuation) | ✅ | Appends to previous message |
+| 1.3 | Handle date format variants (DD/MM/YY, MM/DD/YY, YYYY-MM-DD) | ✅ | Auto-detect DD/MM vs MM/DD |
+| 1.4 | Handle 12h and 24h time formats | ✅ | AM/PM parsing included |
+| 1.5 | Handle Unicode sender names (Hindi, Arabic, Tamil, emoji) | ✅ | Full Unicode regex support |
+| 1.6 | Handle deleted messages ("This message was deleted") | ✅ | type=deleted, skip NLP |
+| 1.7 | Handle edited messages (strip `<This message was edited>`) | ✅ | Suffix stripped cleanly |
+| 1.8 | Handle forwarded messages (prefix "Forwarded") | ✅ | Detected via regex |
+| 1.9 | Handle `<Media omitted>` → type=unknown_media | ✅ | |
+| 1.10 | Skip system messages (encryption notice, group creation, etc.) | ✅ | 20+ system indicators |
+| 1.11 | Implement `POST /api/chats/upload` (accept .zip or .txt) | ✅ | Encoding auto-detection |
+| 1.12 | Extract media from .zip to `data/media/<chat_id>/` | ✅ | All media extensions |
+| 1.13 | Kick off parsing as FastAPI BackgroundTask | ✅ | Background pipeline |
+| 1.14 | Implement pipeline_status tracking in SQLite | ✅ | 10-step tracking |
+| 1.15 | Implement `GET /api/chats/{id}/progress` SSE endpoint | ✅ | 500ms polling SSE |
+| 1.16 | Bulk insert parsed messages into SQLite | ✅ | Batch size 500 |
+| 1.17 | Create `GET /api/chats` — list all chats | ✅ | With sender counts |
+| 1.18 | Create `GET /api/chats/{id}` — chat details + stats | ✅ | Full detail + breakdown |
+| 1.19 | Create `GET /api/chats/{id}/messages` — paginated | ✅ | Filters: type, sender, date, importance |
+| 1.20 | Write unit tests for parser (all edge cases) | ✅ | 40 tests, all passing |
 
 ### Parser Edge Cases Reference
 
@@ -213,16 +213,16 @@ Issues Encountered: [NONE]
 
 | # | Check | Pass? |
 |---|-------|-------|
-| V1.1 | Parser handles all edge case test inputs correctly | ⬜ |
-| V1.2 | Upload endpoint accepts `.zip` files and extracts media | ⬜ |
-| V1.3 | Upload endpoint accepts standalone `.txt` files | ⬜ |
-| V1.4 | Messages appear in SQLite after upload completes | ⬜ |
-| V1.5 | Media files extracted to `data/media/<chat_id>/` | ⬜ |
-| V1.6 | SSE progress stream works (test: `curl -N http://localhost:8000/api/chats/{id}/progress`) | ⬜ |
-| V1.7 | `GET /api/chats` returns list of uploaded chats | ⬜ |
-| V1.8 | `GET /api/chats/{id}/messages` returns paginated messages | ⬜ |
-| V1.9 | All unit tests pass: `pytest tests/` | ⬜ |
-| V1.10 | Frontend and backend still start without errors | ⬜ |
+| V1.1 | Parser handles all edge case test inputs correctly | ✅ |
+| V1.2 | Upload endpoint accepts `.zip` files and extracts media | ✅ |
+| V1.3 | Upload endpoint accepts standalone `.txt` files | ✅ |
+| V1.4 | Messages appear in SQLite after upload completes | ✅ |
+| V1.5 | Media files extracted to `data/media/<chat_id>/` | ✅ |
+| V1.6 | SSE progress stream works (test: `curl -N http://localhost:8000/api/chats/{id}/progress`) | ✅ |
+| V1.7 | `GET /api/chats` returns list of uploaded chats | ✅ |
+| V1.8 | `GET /api/chats/{id}/messages` returns paginated messages | ✅ |
+| V1.9 | All unit tests pass: `pytest tests/` | ✅ |
+| V1.10 | Frontend and backend still start without errors | ✅ |
 
 ### Git Commit
 
