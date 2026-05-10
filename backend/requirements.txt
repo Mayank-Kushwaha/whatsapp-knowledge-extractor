@@ -1,0 +1,33 @@
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+python-multipart==0.0.20
+
+# Database
+sqlalchemy==2.0.41
+alembic==1.15.2
+
+# HTTP client
+httpx==0.28.1
+
+# HTML parsing
+beautifulsoup4==4.13.4
+
+# NLP / ML
+sentence-transformers==4.1.0
+scikit-learn==1.6.1
+hdbscan==0.8.40
+numpy==2.2.6
+
+# PDF extraction
+pymupdf==1.25.5
+
+# LLM providers
+google-generativeai==0.8.5
+
+# Environment
+python-dotenv==1.1.0
+
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.26.0
