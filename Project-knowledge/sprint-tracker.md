@@ -9,13 +9,13 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 2 / 9 |
-| **In Progress** | Sprint 2 — Classification + Enrichment |
-| **Remaining** | 7 |
-| **Current Sprint** | 🔄 Sprint 2 — Classification + Enrichment |
-| **Overall Progress** | ████░░░░░░░░░░░░░░░░ 22% |
-| **Last Updated** | 2026-05-10T19:12:00+05:30 |
-| **Last Commit Hash** | b3d6dd5 |
+| **Completed** | 3 / 9 |
+| **In Progress** | None |
+| **Remaining** | 6 |
+| **Current Sprint** | ⏳ Sprint 3 — Upload UI + Dashboard |
+| **Overall Progress** | ██████░░░░░░░░░░░░░░ 33% |
+| **Last Updated** | 2026-05-11T21:41:00+05:30 |
+| **Last Commit Hash** | e3b7c10 |
 | **Estimated Timeline** | 30 days |
 
 ### Sprint Status Board
@@ -24,7 +24,7 @@
 |--------|------|--------|---------|-----------|--------|
 | 0 | Project Init & Scaffold | ✅ Completed | 2026-05-10 | 2026-05-10 | 5393e4c |
 | 1 | WhatsApp Parser + Upload API | ✅ Completed | 2026-05-10 | 2026-05-10 | b3d6dd5 |
-| 2 | Classification + Enrichment | 🔄 In Progress | 2026-05-11 | — | — |
+| 2 | Classification + Enrichment | ✅ Completed | 2026-05-11 | 2026-05-11 | e3b7c10 |
 | 3 | Upload UI + Dashboard | ⬜ Not Started | — | — | — |
 | 4 | Per-Type Detail Views | ⬜ Not Started | — | — | — |
 | 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
@@ -250,9 +250,9 @@ Issues Encountered: [NONE]
 **Goal**: Classify every message by type (link, image, video, PDF, etc.), fetch Open Graph metadata for links, extract PDF text, and tag important messages.
 
 **Timeline**: Day 6–8
-**Status**: 🔄 In Progress
+**Status**: ✅ Completed
 **Started At**: 2026-05-11T21:28:00+05:30
-**Completed At**: —
+**Completed At**: 2026-05-11T21:41:00+05:30
 **Depends On**: Sprint 1 ✅
 
 ### What To Do
@@ -319,7 +319,7 @@ git push
 
 ```
 Sprint 2 Result: SUCCESS
-Commit Hash: [PENDING]
+Commit Hash: e3b7c10
 Tests Passed: 77 / 77
 Issues Encountered: [NONE]
 ```
