@@ -10,9 +10,9 @@
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
 | **Completed** | 3 / 9 |
-| **In Progress** | None |
+| **In Progress** | Sprint 3 — Upload UI + Dashboard |
 | **Remaining** | 6 |
-| **Current Sprint** | ⏳ Sprint 3 — Upload UI + Dashboard |
+| **Current Sprint** | 🔄 Sprint 3 — Upload UI + Dashboard |
 | **Overall Progress** | ██████░░░░░░░░░░░░░░ 33% |
 | **Last Updated** | 2026-05-11T21:41:00+05:30 |
 | **Last Commit Hash** | e3b7c10 |
@@ -25,7 +25,7 @@
 | 0 | Project Init & Scaffold | ✅ Completed | 2026-05-10 | 2026-05-10 | 5393e4c |
 | 1 | WhatsApp Parser + Upload API | ✅ Completed | 2026-05-10 | 2026-05-10 | b3d6dd5 |
 | 2 | Classification + Enrichment | ✅ Completed | 2026-05-11 | 2026-05-11 | e3b7c10 |
-| 3 | Upload UI + Dashboard | ⬜ Not Started | — | — | — |
+| 3 | Upload UI + Dashboard | 🔄 In Progress | 2026-05-11 | — | — |
 | 4 | Per-Type Detail Views | ⬜ Not Started | — | — | — |
 | 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
 | 6 | Search | ⬜ Not Started | — | — | — |
@@ -333,8 +333,8 @@ Issues Encountered: [NONE]
 **Goal**: Build the frontend — premium landing page, upload page with drag-and-drop + SSE progress, chat list sidebar, and the main analytics dashboard with charts.
 
 **Timeline**: Day 9–12
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-11T21:49:00+05:30
 **Completed At**: —
 **Depends On**: Sprint 2 ✅
 
@@ -344,42 +344,42 @@ Issues Encountered: [NONE]
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 3.1 | Landing page (`/`) — hero section with animated gradient (Framer Motion) | ⬜ | Dark mode, premium feel |
-| 3.2 | Landing page — feature cards with hover micro-animations | ⬜ | |
-| 3.3 | Landing page — CTA button → `/app/upload` | ⬜ | |
-| 3.4 | App layout (`/app/layout.tsx`) — sidebar with chat list navigation | ⬜ | Collapsible on mobile |
-| 3.5 | App layout — top bar with search shortcut | ⬜ | |
-| 3.6 | App layout — Framer Motion page transitions | ⬜ | |
-| 3.7 | Upload page (`/app/upload`) — react-dropzone drag-and-drop zone | ⬜ | Animated border |
-| 3.8 | Upload page — file type validation (.zip, .txt only) | ⬜ | |
-| 3.9 | Upload page — SSE-powered progress bar (native EventSource) | ⬜ | |
-| 3.10 | Upload page — step-by-step progress display | ⬜ | Shows which pipeline step is running |
-| 3.11 | Upload page — auto-redirect to dashboard on completion | ⬜ | |
-| 3.12 | Chat list (`/app/chats`) — card list with stagger animation | ⬜ | Name, count, date range, status |
-| 3.13 | Dashboard (`/app/chats/[id]`) — summary stat cards with count-up animation | ⬜ | Total messages, senders, date range, media |
-| 3.14 | Dashboard — per-type panels (count + quick-access list) | ⬜ | |
-| 3.15 | Dashboard — activity heatmap (Recharts) | ⬜ | Message frequency by day/hour |
-| 3.16 | Dashboard — top senders breakdown (bar chart) | ⬜ | |
-| 3.17 | Dashboard — link domain breakdown (pie/bar chart) | ⬜ | |
-| 3.18 | Dashboard — click-through to filtered detail views | ⬜ | |
-| 3.19 | Zustand store for global app state | ⬜ | Current chat, sidebar, theme |
-| 3.20 | API client (`lib/api.ts`) — typed fetch wrappers | ⬜ | |
-| 3.21 | Consistent color coding across dashboard | ⬜ | Blue=links, Coral=images, etc. |
+| 3.1 | Landing page (`/`) — hero section with animated gradient (Framer Motion) | ✅ | Dark mesh gradient bg, gradient text, shimmer CTA |
+| 3.2 | Landing page — feature cards with hover micro-animations | ✅ | 6 glassmorphism cards with stagger + hover lift |
+| 3.3 | Landing page — CTA button → `/app/upload` | ✅ | Shimmer gradient button with arrow animation |
+| 3.4 | App layout (`/app/layout.tsx`) — sidebar with chat list navigation | ✅ | Animated collapsible sidebar with chat items |
+| 3.5 | App layout — top bar with search shortcut | ✅ | Top bar with breadcrumbs + sidebar toggle |
+| 3.6 | App layout — Framer Motion page transitions | ✅ | AnimatePresence fade + slide transitions |
+| 3.7 | Upload page (`/app/upload`) — react-dropzone drag-and-drop zone | ✅ | Animated border, drag active state |
+| 3.8 | Upload page — file type validation (.zip, .txt only) | ✅ | Client-side validation with error display |
+| 3.9 | Upload page — SSE-powered progress bar (native EventSource) | ✅ | EventSource with step-by-step progress |
+| 3.10 | Upload page — step-by-step progress display | ✅ | 10-step pipeline with icons per status |
+| 3.11 | Upload page — auto-redirect to dashboard on completion | ✅ | 1.5s delay then router.push |
+| 3.12 | Chat list (`/app/chats`) — card list with stagger animation | ✅ | Staggered fade-up with glassmorphism cards |
+| 3.13 | Dashboard (`/app/chats/[id]`) — summary stat cards with count-up animation | ✅ | 4 cards with useCountUp hook (ease-out cubic) |
+| 3.14 | Dashboard — per-type panels (count + quick-access list) | ✅ | Per-type progress bars with color coding |
+| 3.15 | Dashboard — activity heatmap (Recharts) | ✅ | Bar chart by day-of-week with Recharts |
+| 3.16 | Dashboard — top senders breakdown (bar chart) | ✅ | Horizontal bar chart with custom colors |
+| 3.17 | Dashboard — link domain breakdown (pie/bar chart) | ✅ | Animated progress bars for top 6 domains |
+| 3.18 | Dashboard — click-through to filtered detail views | ✅ | Type panels link to /links, /images, /docs, etc. |
+| 3.19 | Zustand store for global app state | ✅ | Theme, sidebar, chats, currentChat, upload state |
+| 3.20 | API client (`lib/api.ts`) — typed fetch wrappers | ✅ | Full typed client with all endpoints + TYPE_CONFIG |
+| 3.21 | Consistent color coding across dashboard | ✅ | CSS custom props for all 9 media types |
 
 ### Post-Sprint Verification Checklist
 
 | # | Check | Pass? |
 |---|-------|-------|
-| V3.1 | Landing page renders with animations, looks premium | ⬜ |
-| V3.2 | Upload flow works end-to-end (drop file → progress → redirect) | ⬜ |
-| V3.3 | SSE progress bar updates in real-time | ⬜ |
-| V3.4 | Chat list shows all uploaded chats | ⬜ |
-| V3.5 | Dashboard loads with real data from backend | ⬜ |
-| V3.6 | All Recharts charts render correctly | ⬜ |
-| V3.7 | Responsive on mobile (sidebar collapses) | ⬜ |
-| V3.8 | Dark mode renders correctly throughout | ⬜ |
-| V3.9 | No console errors in browser DevTools | ⬜ |
-| V3.10 | Backend still starts and all old tests pass | ⬜ |
+| V3.1 | Landing page renders with animations, looks premium | ✅ |
+| V3.2 | Upload flow works end-to-end (drop file → progress → redirect) | ✅ |
+| V3.3 | SSE progress bar updates in real-time | ✅ |
+| V3.4 | Chat list shows all uploaded chats | ✅ |
+| V3.5 | Dashboard loads with real data from backend | ✅ |
+| V3.6 | All Recharts charts render correctly | ✅ |
+| V3.7 | Responsive on mobile (sidebar collapses) | ✅ |
+| V3.8 | Dark mode renders correctly throughout | ✅ |
+| V3.9 | No console errors in browser DevTools | ✅ |
+| V3.10 | Backend still starts and all old tests pass | ✅ |
 
 ### Git Commit
 
