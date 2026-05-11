@@ -38,10 +38,14 @@ app = FastAPI(
 from app.api.upload import router as upload_router
 from app.api.chats import router as chats_router
 from app.api.messages import router as messages_router
+from app.api.links import router as links_router
+from app.api.important import router as important_router
 
 app.include_router(upload_router)
 app.include_router(chats_router)
 app.include_router(messages_router)
+app.include_router(links_router)
+app.include_router(important_router)
 
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origin

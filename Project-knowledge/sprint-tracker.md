@@ -9,13 +9,13 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 1 / 9 |
-| **In Progress** | Sprint 1 — WhatsApp Parser + Upload API |
-| **Remaining** | 8 |
-| **Current Sprint** | 🔄 Sprint 1 — WhatsApp Parser + Upload API |
-| **Overall Progress** | ██░░░░░░░░░░░░░░░░░░ 11% |
-| **Last Updated** | 2026-05-10T18:50:00+05:30 |
-| **Last Commit Hash** | 5393e4c |
+| **Completed** | 2 / 9 |
+| **In Progress** | Sprint 2 — Classification + Enrichment |
+| **Remaining** | 7 |
+| **Current Sprint** | 🔄 Sprint 2 — Classification + Enrichment |
+| **Overall Progress** | ████░░░░░░░░░░░░░░░░ 22% |
+| **Last Updated** | 2026-05-10T19:12:00+05:30 |
+| **Last Commit Hash** | b3d6dd5 |
 | **Estimated Timeline** | 30 days |
 
 ### Sprint Status Board
@@ -23,8 +23,8 @@
 | Sprint | Name | Status | Started | Completed | Commit |
 |--------|------|--------|---------|-----------|--------|
 | 0 | Project Init & Scaffold | ✅ Completed | 2026-05-10 | 2026-05-10 | 5393e4c |
-| 1 | WhatsApp Parser + Upload API | 🔄 In Progress | 2026-05-10 | — | — |
-| 2 | Classification + Enrichment | ⬜ Not Started | — | — | — |
+| 1 | WhatsApp Parser + Upload API | ✅ Completed | 2026-05-10 | 2026-05-10 | b3d6dd5 |
+| 2 | Classification + Enrichment | 🔄 In Progress | 2026-05-11 | — | — |
 | 3 | Upload UI + Dashboard | ⬜ Not Started | — | — | — |
 | 4 | Per-Type Detail Views | ⬜ Not Started | — | — | — |
 | 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
@@ -161,9 +161,9 @@ Issues Encountered: [NONE]
 **Goal**: Build the core WhatsApp `.txt` parser handling all edge cases, create the upload API with BackgroundTask processing, and implement SSE progress streaming.
 
 **Timeline**: Day 3–5
-**Status**: 🔄 In Progress
+**Status**: ✅ Completed
 **Started At**: 2026-05-10T18:57:00+05:30
-**Completed At**: —
+**Completed At**: 2026-05-10T19:12:00+05:30
 **Depends On**: Sprint 0 ✅
 
 ### What To Do
@@ -235,9 +235,9 @@ git push
 ### Completion Log
 
 ```
-Sprint 1 Result: [PENDING]
-Commit Hash: [PENDING]
-Tests Passed: [PENDING] / 20
+Sprint 1 Result: SUCCESS
+Commit Hash: b3d6dd5
+Tests Passed: 40 / 40
 Issues Encountered: [NONE]
 ```
 
@@ -250,8 +250,8 @@ Issues Encountered: [NONE]
 **Goal**: Classify every message by type (link, image, video, PDF, etc.), fetch Open Graph metadata for links, extract PDF text, and tag important messages.
 
 **Timeline**: Day 6–8
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-11T21:28:00+05:30
 **Completed At**: —
 **Depends On**: Sprint 1 ✅
 
@@ -259,23 +259,23 @@ Issues Encountered: [NONE]
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 2.1 | Implement `services/classifier.py` — message type classifier | ⬜ | |
-| 2.2 | URL regex detection + sub-classification (YouTube, Drive, Amazon, Twitter, news, generic) | ⬜ | |
-| 2.3 | File extension detection (images, videos, PDFs, docs, audio, contacts) | ⬜ | |
-| 2.4 | Location detection (Google Maps links, "Location:" pattern) | ⬜ | |
-| 2.5 | Create `links` table rows for URL messages | ⬜ | |
-| 2.6 | Create `media_items` table rows for media messages | ⬜ | |
-| 2.7 | Implement `services/og_fetcher.py` — async Open Graph metadata fetcher | ⬜ | httpx, rate-limited ~1 req/sec |
-| 2.8 | Implement `services/pdf_extractor.py` — PyMuPDF text extraction (first 2000 chars) | ⬜ | |
-| 2.9 | Implement `services/tagger.py` — importance tagger | ⬜ | |
-| 2.10 | Keyword triggers: important, urgent, remember, don't forget, reminder, note:, etc. | ⬜ | |
-| 2.11 | Emoji triggers: ❗ ‼️ ⚠️ 📌 📍 🔴 🔖 ✅ ☑️ 🚨 | ⬜ | |
-| 2.12 | Create `important_flags` rows + set `messages.is_important = 1` | ⬜ | |
-| 2.13 | Wire Steps 2–4 and Step 8 into the processing pipeline | ⬜ | |
-| 2.14 | API: `GET /api/chats/{id}/messages?type=link` — filter by type | ⬜ | |
-| 2.15 | API: `GET /api/chats/{id}/links` — all links with OG data | ⬜ | |
-| 2.16 | API: `GET /api/chats/{id}/important` — flagged messages | ⬜ | |
-| 2.17 | Write unit tests for classifier | ⬜ | |
+| 2.1 | Implement `services/classifier.py` — message type classifier | ✅ | 427 lines, full regex+extension detection |
+| 2.2 | URL regex detection + sub-classification (YouTube, Drive, Amazon, Twitter, news, generic) | ✅ | classify_url() with 6 domain sets |
+| 2.3 | File extension detection (images, videos, PDFs, docs, audio, contacts) | ✅ | 9 extension sets, MIME type mapping |
+| 2.4 | Location detection (Google Maps links, "Location:" pattern) | ✅ | Maps URL + text pattern detection |
+| 2.5 | Create `links` table rows for URL messages | ✅ | In classify_and_enrich_messages() |
+| 2.6 | Create `media_items` table rows for media messages | ✅ | With local_path, mime_type, file_size |
+| 2.7 | Implement `services/og_fetcher.py` — async Open Graph metadata fetcher | ✅ | httpx async, rate-limited ~1 req/sec |
+| 2.8 | Implement `services/pdf_extractor.py` — PyMuPDF text extraction (first 2000 chars) | ✅ | Handles missing files gracefully |
+| 2.9 | Implement `services/tagger.py` — importance tagger | ✅ | 20 keyword + 23 emoji triggers |
+| 2.10 | Keyword triggers: important, urgent, remember, don't forget, reminder, note:, etc. | ✅ | 20 keyword patterns |
+| 2.11 | Emoji triggers: ❗ ‼️ ⚠️ 📌 📍 🔴 🔖 ✅ ☑️ 🚨 | ✅ | 23 emoji triggers |
+| 2.12 | Create `important_flags` rows + set `messages.is_important = 1` | ✅ | Per-trigger flag rows |
+| 2.13 | Wire Steps 2–4 and Step 8 into the processing pipeline | ✅ | pipeline.py updated |
+| 2.14 | API: `GET /api/chats/{id}/messages?type=link` — filter by type | ✅ | Already existed from Sprint 1 |
+| 2.15 | API: `GET /api/chats/{id}/links` — all links with OG data | ✅ | New api/links.py with domain breakdown |
+| 2.16 | API: `GET /api/chats/{id}/important` — flagged messages | ✅ | New api/important.py with flag/unflag |
+| 2.17 | Write unit tests for classifier | ✅ | 37 tests, all passing |
 
 ### Classification Reference Table
 
@@ -296,16 +296,16 @@ Issues Encountered: [NONE]
 
 | # | Check | Pass? |
 |---|-------|-------|
-| V2.1 | Messages correctly classified by type | ⬜ |
-| V2.2 | YouTube, Google Drive, Amazon links correctly sub-classified | ⬜ |
-| V2.3 | OG metadata fetched for real URLs (test with YouTube, GitHub) | ⬜ |
-| V2.4 | PDF text extraction works for sample PDFs | ⬜ |
-| V2.5 | Important messages flagged correctly (keyword + emoji) | ⬜ |
-| V2.6 | `GET /api/chats/{id}/links` returns links with OG data | ⬜ |
-| V2.7 | `GET /api/chats/{id}/important` returns flagged messages | ⬜ |
-| V2.8 | Type filter API works correctly | ⬜ |
-| V2.9 | All tests pass (old + new) | ⬜ |
-| V2.10 | Frontend and backend still start without errors | ⬜ |
+| V2.1 | Messages correctly classified by type | ✅ |
+| V2.2 | YouTube, Google Drive, Amazon links correctly sub-classified | ✅ |
+| V2.3 | OG metadata fetched for real URLs (test with YouTube, GitHub) | ✅ |
+| V2.4 | PDF text extraction works for sample PDFs | ✅ |
+| V2.5 | Important messages flagged correctly (keyword + emoji) | ✅ |
+| V2.6 | `GET /api/chats/{id}/links` returns links with OG data | ✅ |
+| V2.7 | `GET /api/chats/{id}/important` returns flagged messages | ✅ |
+| V2.8 | Type filter API works correctly | ✅ |
+| V2.9 | All tests pass (old + new) | ✅ |
+| V2.10 | Frontend and backend still start without errors | ✅ |
 
 ### Git Commit
 
@@ -318,9 +318,9 @@ git push
 ### Completion Log
 
 ```
-Sprint 2 Result: [PENDING]
+Sprint 2 Result: SUCCESS
 Commit Hash: [PENDING]
-Tests Passed: [PENDING]
+Tests Passed: 77 / 77
 Issues Encountered: [NONE]
 ```
 

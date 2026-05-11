@@ -1,7 +1,7 @@
 """Processing pipeline for uploaded WhatsApp chats.
 
-Sprint 1 implements Step 1 (Parse) and Step 10 (Mark Complete).
-Remaining steps are placeholders for future sprints.
+Sprint 1: Step 1 (Parse) and Step 10 (Complete).
+Sprint 2: Steps 2 (Classify), 3 (OG Fetch), 4 (PDF Extract), 8 (Tag Important).
 """
 
 import logging
@@ -96,7 +96,7 @@ def _bulk_insert_messages(
         elif msg["is_media_omitted"]:
             msg_type = "unknown_media"
         elif msg["media_filename"]:
-            msg_type = "media"  # Will be refined in Sprint 2 by classifier
+            msg_type = "media"  # Will be refined in Step 2 by classifier
         
         message = Message(
             chat_id=chat_id,
@@ -129,9 +129,6 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
     
     This runs as a BackgroundTask. Each step updates pipeline_status
     so the SSE endpoint can report progress.
-    
-    Sprint 1: Only Step 1 (Parse) and Step 10 (Complete) are implemented.
-    Steps 2-9 are skipped with placeholder logging.
     """
     db = SessionLocal()
     
@@ -164,24 +161,57 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
         chat = db.query(Chat).get(chat_id)
         if chat:
             chat.message_count = msg_count
-            # Determine chat type
             chat.type = "personal" if len(sender_names) <= 2 else "group"
-            # Set date range
             timestamps = [m["timestamp"] for m in parsed_messages]
             chat.date_range_start = min(timestamps)
             chat.date_range_end = max(timestamps)
             db.commit()
         
-        # ── Steps 2–9: Placeholders (future sprints) ──────────────────
-        for step in range(2, 10):
+        # ── Step 2: Classify ───────────────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 2 — Classifying content")
+        _update_pipeline_status(db, chat_id, step=2)
+        
+        from app.services.classifier import classify_and_enrich_messages
+        classify_stats = classify_and_enrich_messages(db, chat_id, media_dir=media_dir)
+        logger.info(f"[Pipeline] Chat {chat_id}: Classification done — {classify_stats}")
+        
+        # ── Step 3: Enrich Links (OG metadata) ─────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 3 — Enriching links")
+        _update_pipeline_status(db, chat_id, step=3)
+        
+        from app.services.og_fetcher import fetch_and_store_og_metadata
+        og_count = fetch_and_store_og_metadata(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: OG enrichment done — {og_count} links enriched")
+        
+        # ── Step 4: Extract PDF text ───────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 4 — Extracting PDF text")
+        _update_pipeline_status(db, chat_id, step=4)
+        
+        from app.services.pdf_extractor import extract_pdfs_for_chat
+        pdf_count = extract_pdfs_for_chat(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: PDF extraction done — {pdf_count} PDFs extracted")
+        
+        # ── Steps 5–7: Placeholders (future sprints) ──────────────────
+        for step in range(5, 8):
             _update_pipeline_status(db, chat_id, step=step)
             logger.info(f"[Pipeline] Chat {chat_id}: Step {step} — {PIPELINE_STEPS[step]} (skipped, future sprint)")
+        
+        # ── Step 8: Tag Importance ─────────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 8 — Tagging importance")
+        _update_pipeline_status(db, chat_id, step=8)
+        
+        from app.services.tagger import tag_important_messages
+        tagged_count = tag_important_messages(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: Tagging done — {tagged_count} messages flagged")
+        
+        # ── Step 9: Build FTS Index (placeholder) ──────────────────────
+        _update_pipeline_status(db, chat_id, step=9)
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 9 — {PIPELINE_STEPS[9]} (skipped, future sprint)")
         
         # ── Step 10: Mark Complete ─────────────────────────────────────
         logger.info(f"[Pipeline] Chat {chat_id}: Step 10 — Finalizing")
         _update_pipeline_status(db, chat_id, step=10)
         
-        # Mark the pipeline status as complete
         status = db.query(PipelineStatus).filter(PipelineStatus.chat_id == chat_id).first()
         if status:
             status.current_step = 10
@@ -189,7 +219,6 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
             status.error = None
             status.updated_at = datetime.utcnow()
         
-        # Mark the chat as ready
         chat = db.query(Chat).get(chat_id)
         if chat:
             chat.status = "ready"
