@@ -517,6 +517,96 @@ export async function getClusterMessages(
 }
 
 // ---------------------------------------------------------------------------
+// Search types
+// ---------------------------------------------------------------------------
+
+export interface SearchResultItem {
+  id: number;
+  chat_id: number;
+  chat_name: string | null;
+  sender_id: number | null;
+  sender_name: string | null;
+  content: string;
+  timestamp: string;
+  type: string;
+  is_important: boolean;
+  cluster_id: number | null;
+  score: number;
+  match_type: string;
+  context_before: string | null;
+  context_after: string | null;
+}
+
+export interface SearchResponse {
+  results: SearchResultItem[];
+  total: number;
+  query: string;
+  mode: string;
+  filters_applied: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Search endpoints
+// ---------------------------------------------------------------------------
+
+export async function searchChat(
+  chatId: number,
+  params: {
+    q: string;
+    mode?: string;
+    sender?: string;
+    sender_id?: number;
+    type?: string;
+    is_important?: boolean;
+    cluster_id?: number;
+    start_date?: string;
+    end_date?: string;
+    domain?: string;
+    limit?: number;
+  }
+): Promise<SearchResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("q", params.q);
+  if (params.mode) searchParams.set("mode", params.mode);
+  if (params.sender) searchParams.set("sender", params.sender);
+  if (params.sender_id) searchParams.set("sender_id", String(params.sender_id));
+  if (params.type) searchParams.set("type", params.type);
+  if (params.is_important !== undefined) searchParams.set("is_important", String(params.is_important));
+  if (params.cluster_id) searchParams.set("cluster_id", String(params.cluster_id));
+  if (params.start_date) searchParams.set("start_date", params.start_date);
+  if (params.end_date) searchParams.set("end_date", params.end_date);
+  if (params.domain) searchParams.set("domain", params.domain);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  return apiFetch(`/api/chats/${chatId}/search?${searchParams.toString()}`);
+}
+
+export async function searchGlobal(
+  params: {
+    q: string;
+    mode?: string;
+    sender?: string;
+    type?: string;
+    is_important?: boolean;
+    start_date?: string;
+    end_date?: string;
+    domain?: string;
+    limit?: number;
+  }
+): Promise<SearchResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("q", params.q);
+  if (params.mode) searchParams.set("mode", params.mode);
+  if (params.sender) searchParams.set("sender", params.sender);
+  if (params.type) searchParams.set("type", params.type);
+  if (params.is_important !== undefined) searchParams.set("is_important", String(params.is_important));
+  if (params.start_date) searchParams.set("start_date", params.start_date);
+  if (params.end_date) searchParams.set("end_date", params.end_date);
+  if (params.domain) searchParams.set("domain", params.domain);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  return apiFetch(`/api/search?${searchParams.toString()}`);
+}
+
+// ---------------------------------------------------------------------------
 // Utility: YouTube thumbnail URL
 // ---------------------------------------------------------------------------
 

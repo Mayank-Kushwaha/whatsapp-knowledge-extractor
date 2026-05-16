@@ -10,9 +10,9 @@
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
 | **Completed** | 5 / 9 |
-| **In Progress** | None |
-| **Remaining** | 4 |
-| **Current Sprint** | ⏳ Sprint 6 — Search |
+| **In Progress** | Sprint 6 — Search |
+| **Remaining** | 3 |
+| **Current Sprint** | 🔄 Sprint 6 — Search |
 | **Overall Progress** | ████████████░░░░░░░░ 66% |
 | **Last Updated** | 2026-05-16T21:24:05+05:30 |
 | **Last Commit Hash** | 8bb2174 |
@@ -28,7 +28,7 @@
 | 3 | Upload UI + Dashboard | ✅ Completed | 2026-05-11 | 2026-05-16 | e3b7c10 |
 | 4 | Per-Type Detail Views | ✅ Completed | 2026-05-16 | 2026-05-16 | d5be5f4 |
 | 5 | NLP Pipeline | ✅ Completed | 2026-05-16 | 2026-05-16 | 8bb2174 |
-| 6 | Search | ⬜ Not Started | — | — | — |
+| 6 | Search | 🔄 In Progress | 2026-05-16 | — | — |
 | 7 | Knowledge Graph | ⬜ Not Started | — | — | — |
 | 8 | Polish & Launch | ⬜ Not Started | — | — | — |
 
@@ -562,8 +562,8 @@ Files Modified:
 **Goal**: Full-text keyword search + semantic search + structured filters across single and multiple chats with a polished search UI.
 
 **Timeline**: Day 20–22
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-16T21:59:18+05:30
 **Completed At**: —
 **Depends On**: Sprint 5 ✅
 
@@ -571,35 +571,35 @@ Files Modified:
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 6.1 | Implement `api/search.py` — keyword search via SQLite FTS5 MATCH | ⬜ | |
-| 6.2 | Semantic search — load embeddings → numpy cosine similarity → top-K | ⬜ | |
-| 6.3 | Filter search — by sender, date range, type, cluster, importance | ⬜ | |
-| 6.4 | Shorthand filter parser: `from:Mom`, `type:link`, `is:important`, `domain:youtube.com` | ⬜ | |
-| 6.5 | Shorthand: `before:2024-01`, `after:2023-06` | ⬜ | |
-| 6.6 | Combined endpoint: keyword + semantic + filters in one query | ⬜ | |
-| 6.7 | Cross-chat search: search across all uploaded chats | ⬜ | |
-| 6.8 | Search UI (`/app/chats/[id]/search`) — search input with suggestions | ⬜ | |
-| 6.9 | Search UI — filter chips (type, sender, date, importance) | ⬜ | |
-| 6.10 | Search UI — shorthand filter support in search bar | ⬜ | |
-| 6.11 | Search UI — results show message in context (surrounding messages) | ⬜ | |
-| 6.12 | Search UI — highlight matched terms in results | ⬜ | |
-| 6.13 | Search UI — Framer Motion result list animations | ⬜ | |
-| 6.14 | Global search (`/app/search`) — cross-chat search toggle | ⬜ | |
+| 6.1 | Implement `api/search.py` — keyword search via SQLite FTS5 MATCH | ✅ | FTS5 MATCH with rank ordering |
+| 6.2 | Semantic search — load embeddings → numpy cosine similarity → top-K | ✅ | semantic_search.py, 85 lines |
+| 6.3 | Filter search — by sender, date range, type, cluster, importance | ✅ | All filters implemented |
+| 6.4 | Shorthand filter parser: `from:Mom`, `type:link`, `is:important`, `domain:youtube.com` | ✅ | parse_shorthand_filters() |
+| 6.5 | Shorthand: `before:2024-01`, `after:2023-06` | ✅ | Date range shorthands |
+| 6.6 | Combined endpoint: keyword + semantic + filters in one query | ✅ | 60/40 blend scoring |
+| 6.7 | Cross-chat search: search across all uploaded chats | ✅ | GET /api/search endpoint |
+| 6.8 | Search UI (`/app/chats/[id]/search`) — search input with suggestions | ✅ | Debounced, 350 lines |
+| 6.9 | Search UI — filter chips (type, sender, date, importance) | ✅ | Type chips + important toggle |
+| 6.10 | Search UI — shorthand filter support in search bar | ✅ | Help text with examples |
+| 6.11 | Search UI — results show message in context (surrounding messages) | ✅ | context_before/after display |
+| 6.12 | Search UI — highlight matched terms in results | ✅ | highlightMatch() function |
+| 6.13 | Search UI — Framer Motion result list animations | ✅ | Stagger + AnimatePresence |
+| 6.14 | Global search (`/app/search`) — cross-chat search toggle | ✅ | Grouped by chat, 200 lines |
 
 ### Post-Sprint Verification Checklist
 
 | # | Check | Pass? |
 |---|-------|-------|
-| V6.1 | FTS5 keyword search returns accurate results | ⬜ |
-| V6.2 | Semantic search returns semantically related messages | ⬜ |
-| V6.3 | Sender filter works | ⬜ |
-| V6.4 | Type filter works | ⬜ |
-| V6.5 | Date range filter works | ⬜ |
-| V6.6 | Shorthand filters parse correctly (`from:`, `type:`, `is:`, etc.) | ⬜ |
-| V6.7 | Cross-chat search returns results from multiple chats | ⬜ |
-| V6.8 | Matched terms highlighted in results | ⬜ |
-| V6.9 | Search UI responsive and fast | ⬜ |
-| V6.10 | All previous features still work | ⬜ |
+| V6.1 | FTS5 keyword search returns accurate results | ✅ |
+| V6.2 | Semantic search returns semantically related messages | ✅ |
+| V6.3 | Sender filter works | ✅ |
+| V6.4 | Type filter works | ✅ |
+| V6.5 | Date range filter works | ✅ |
+| V6.6 | Shorthand filters parse correctly (`from:`, `type:`, `is:`, etc.) | ✅ |
+| V6.7 | Cross-chat search returns results from multiple chats | ✅ |
+| V6.8 | Matched terms highlighted in results | ✅ |
+| V6.9 | Search UI responsive and fast | ✅ |
+| V6.10 | All previous features still work | ✅ |
 
 ### Git Commit
 
