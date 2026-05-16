@@ -249,13 +249,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {pathname !== "/app/chats" && pathname !== "/app/upload" && (
               <>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-foreground font-medium truncate">
-                  {pathname.includes("/upload")
-                    ? "Upload"
-                    : currentChatId
-                      ? chats.find((c) => c.id === currentChatId)?.name || `Chat ${currentChatId}`
-                      : ""}
-                </span>
+                {currentChatId ? (
+                  <Link
+                    href={`/app/chats/${currentChatId}`}
+                    className="hover:text-foreground transition-colors"
+                  >
+                    {chats.find((c) => c.id === currentChatId)?.name || `Chat ${currentChatId}`}
+                  </Link>
+                ) : (
+                  <span className="text-foreground font-medium">
+                    {pathname.includes("/upload") ? "Upload" : ""}
+                  </span>
+                )}
+                {/* Sub-page crumb (links, images, videos, docs, important) */}
+                {currentChatId && (() => {
+                  const subPageMatch = pathname.match(/\/chats\/\d+\/(links|images|videos|docs|important)/);
+                  if (subPageMatch) {
+                    const subPage = subPageMatch[1];
+                    const labels: Record<string, string> = {
+                      links: "Links",
+                      images: "Images",
+                      videos: "Videos",
+                      docs: "Documents",
+                      important: "Important",
+                    };
+                    return (
+                      <>
+                        <ChevronRight className="w-3 h-3" />
+                        <span className="text-foreground font-medium">
+                          {labels[subPage] || subPage}
+                        </span>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             )}
           </div>

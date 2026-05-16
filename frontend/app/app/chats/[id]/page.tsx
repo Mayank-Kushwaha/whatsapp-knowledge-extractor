@@ -31,7 +31,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { getChat, getChatMessages, getChatLinks, TYPE_CONFIG, type ChatDetail, type TypeBreakdown, type SenderInfo } from "@/lib/api";
+import { getChat, getChatMessages, getChatLinkDomains, TYPE_CONFIG, type ChatDetail, type TypeBreakdown, type SenderInfo } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
@@ -464,8 +464,8 @@ function DomainBreakdownChart({ chatId }: { chatId: number }) {
   useEffect(() => {
     async function fetchLinks() {
       try {
-        const result = await getChatLinks(chatId);
-        const topDomains = result.domains
+        const domainData = await getChatLinkDomains(chatId);
+        const topDomains = domainData
           .sort((a, b) => b.count - a.count)
           .slice(0, 6)
           .map((d) => ({ name: d.domain, count: d.count }));

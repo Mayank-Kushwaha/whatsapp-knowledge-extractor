@@ -97,6 +97,15 @@ export interface PaginatedResponse<T> {
   per_page: number;
 }
 
+// ---------------------------------------------------------------------------
+// Link types
+// ---------------------------------------------------------------------------
+
+export interface LinkSenderInfo {
+  id: number;
+  display_name: string;
+}
+
 export interface LinkItem {
   id: number;
   message_id: number;
@@ -106,15 +115,19 @@ export interface LinkItem {
   og_description: string | null;
   og_image_url: string | null;
   link_type: string | null;
+  sender: LinkSenderInfo | null;
+  timestamp: string | null;
+  message_content: string | null;
 }
 
-export interface ImportantMessage {
-  id: number;
-  message_id: number;
-  trigger_type: string;
-  trigger_value: string;
-  flagged_at: string;
-  message: Message;
+export interface PaginatedLinks {
+  links: LinkItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
 export interface DomainBreakdown {
@@ -122,15 +135,73 @@ export interface DomainBreakdown {
   count: number;
 }
 
-export interface LinksResponse {
-  links: LinkItem[];
-  total: number;
-  domains: DomainBreakdown[];
+// ---------------------------------------------------------------------------
+// Important types
+// ---------------------------------------------------------------------------
+
+export interface ImportantSender {
+  id: number;
+  display_name: string;
 }
 
-export interface ImportantResponse {
-  items: ImportantMessage[];
+export interface FlagInfo {
+  trigger_type: string;
+  trigger_value: string | null;
+}
+
+export interface ImportantMessage {
+  id: number;
+  chat_id: number;
+  sender: ImportantSender | null;
+  content: string;
+  timestamp: string;
+  type: string;
+  importance_reason: string | null;
+  flags: FlagInfo[];
+}
+
+export interface PaginatedImportant {
+  messages: ImportantMessage[];
   total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Media item types
+// ---------------------------------------------------------------------------
+
+export interface MediaSenderInfo {
+  id: number;
+  display_name: string;
+}
+
+export interface MediaItemResponse {
+  id: number;
+  message_id: number;
+  chat_id: number;
+  type: string;
+  original_filename: string | null;
+  local_path: string | null;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  extracted_text: string | null;
+  sender: MediaSenderInfo | null;
+  timestamp: string | null;
+  message_content: string | null;
+}
+
+export interface PaginatedMedia {
+  items: MediaItemResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,16 +252,95 @@ export async function getChatMessages(
 // Links endpoints
 // ---------------------------------------------------------------------------
 
-export async function getChatLinks(chatId: number): Promise<LinksResponse> {
-  return apiFetch(`/api/chats/${chatId}/links`);
+export async function getChatLinks(
+  chatId: number,
+  params?: {
+    page?: number;
+    page_size?: number;
+    domain?: string;
+    link_type?: string;
+    sender_id?: number;
+    start_date?: string;
+    end_date?: string;
+    sort?: string;
+  }
+): Promise<PaginatedLinks> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+  if (params?.domain) searchParams.set("domain", params.domain);
+  if (params?.link_type) searchParams.set("link_type", params.link_type);
+  if (params?.sender_id) searchParams.set("sender_id", String(params.sender_id));
+  if (params?.start_date) searchParams.set("start_date", params.start_date);
+  if (params?.end_date) searchParams.set("end_date", params.end_date);
+  if (params?.sort) searchParams.set("sort", params.sort);
+  const qs = searchParams.toString();
+  return apiFetch(`/api/chats/${chatId}/links${qs ? `?${qs}` : ""}`);
+}
+
+export async function getChatLinkDomains(chatId: number): Promise<DomainBreakdown[]> {
+  return apiFetch(`/api/chats/${chatId}/links/domains`);
 }
 
 // ---------------------------------------------------------------------------
 // Important endpoints
 // ---------------------------------------------------------------------------
 
-export async function getChatImportant(chatId: number): Promise<ImportantResponse> {
-  return apiFetch(`/api/chats/${chatId}/important`);
+export async function getChatImportant(
+  chatId: number,
+  params?: {
+    page?: number;
+    page_size?: number;
+    trigger_type?: string;
+    sender_id?: number;
+    sort?: string;
+  }
+): Promise<PaginatedImportant> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+  if (params?.trigger_type) searchParams.set("trigger_type", params.trigger_type);
+  if (params?.sender_id) searchParams.set("sender_id", String(params.sender_id));
+  if (params?.sort) searchParams.set("sort", params.sort);
+  const qs = searchParams.toString();
+  return apiFetch(`/api/chats/${chatId}/important${qs ? `?${qs}` : ""}`);
+}
+
+export async function toggleImportance(
+  chatId: number,
+  messageId: number
+): Promise<{ message_id: number; is_important: boolean; action: string }> {
+  return apiFetch(`/api/chats/${chatId}/messages/${messageId}/flag`, {
+    method: "POST",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Media endpoints
+// ---------------------------------------------------------------------------
+
+export async function getChatMedia(
+  chatId: number,
+  params?: {
+    page?: number;
+    page_size?: number;
+    type?: string;
+    sender_id?: number;
+    start_date?: string;
+    end_date?: string;
+    sort?: string;
+  }
+): Promise<PaginatedMedia> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.sender_id) searchParams.set("sender_id", String(params.sender_id));
+  if (params?.start_date) searchParams.set("start_date", params.start_date);
+  if (params?.end_date) searchParams.set("end_date", params.end_date);
+  if (params?.sort) searchParams.set("sort", params.sort);
+  const qs = searchParams.toString();
+  return apiFetch(`/api/chats/${chatId}/media${qs ? `?${qs}` : ""}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -279,3 +429,60 @@ export const TYPE_CONFIG: Record<string, { label: string; color: string; bgColor
   deleted: { label: "Deleted", color: "var(--type-text)", bgColor: "var(--type-text-bg)", icon: "🗑️" },
   unknown_media: { label: "Media", color: "var(--type-text)", bgColor: "var(--type-text-bg)", icon: "📎" },
 };
+
+// ---------------------------------------------------------------------------
+// Utility: format file size
+// ---------------------------------------------------------------------------
+
+export function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ---------------------------------------------------------------------------
+// Utility: format relative time
+// ---------------------------------------------------------------------------
+
+export function formatRelativeTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Utility: YouTube thumbnail URL
+// ---------------------------------------------------------------------------
+
+export function getYouTubeThumbnail(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+  }
+  return null;
+}
+
+export function getYouTubeEmbedUrl(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  return null;
+}
+

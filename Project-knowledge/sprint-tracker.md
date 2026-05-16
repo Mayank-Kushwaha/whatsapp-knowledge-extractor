@@ -9,12 +9,12 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 3 / 9 |
-| **In Progress** | Sprint 3 — Upload UI + Dashboard |
-| **Remaining** | 6 |
-| **Current Sprint** | 🔄 Sprint 3 — Upload UI + Dashboard |
-| **Overall Progress** | ██████░░░░░░░░░░░░░░ 33% |
-| **Last Updated** | 2026-05-11T21:41:00+05:30 |
+| **Completed** | 4 / 9 |
+| **In Progress** | Sprint 4 — Per-Type Detail Views |
+| **Remaining** | 5 |
+| **Current Sprint** | 🔄 Sprint 4 — Per-Type Detail Views |
+| **Overall Progress** | ████████░░░░░░░░░░░░ 44% |
+| **Last Updated** | 2026-05-16T10:53:00+05:30 |
 | **Last Commit Hash** | e3b7c10 |
 | **Estimated Timeline** | 30 days |
 
@@ -25,8 +25,8 @@
 | 0 | Project Init & Scaffold | ✅ Completed | 2026-05-10 | 2026-05-10 | 5393e4c |
 | 1 | WhatsApp Parser + Upload API | ✅ Completed | 2026-05-10 | 2026-05-10 | b3d6dd5 |
 | 2 | Classification + Enrichment | ✅ Completed | 2026-05-11 | 2026-05-11 | e3b7c10 |
-| 3 | Upload UI + Dashboard | 🔄 In Progress | 2026-05-11 | — | — |
-| 4 | Per-Type Detail Views | ⬜ Not Started | — | — | — |
+| 3 | Upload UI + Dashboard | ✅ Completed | 2026-05-11 | 2026-05-16 | e3b7c10 |
+| 4 | Per-Type Detail Views | 🔄 In Progress | 2026-05-16 | — | — |
 | 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
 | 6 | Search | ⬜ Not Started | — | — | — |
 | 7 | Knowledge Graph | ⬜ Not Started | — | — | — |
@@ -333,9 +333,9 @@ Issues Encountered: [NONE]
 **Goal**: Build the frontend — premium landing page, upload page with drag-and-drop + SSE progress, chat list sidebar, and the main analytics dashboard with charts.
 
 **Timeline**: Day 9–12
-**Status**: 🔄 In Progress
+**Status**: ✅ Completed
 **Started At**: 2026-05-11T21:49:00+05:30
-**Completed At**: —
+**Completed At**: 2026-05-16T10:53:00+05:30
 **Depends On**: Sprint 2 ✅
 
 > **Skills to Use**: `impeccable`, `ui-ux-pro-max`, `ui-designer`, `frontend-design`, Framer Motion
@@ -392,8 +392,8 @@ git push
 ### Completion Log
 
 ```
-Sprint 3 Result: [PENDING]
-Commit Hash: [PENDING]
+Sprint 3 Result: SUCCESS
+Commit Hash: e3b7c10
 Issues Encountered: [NONE]
 ```
 
@@ -406,8 +406,8 @@ Issues Encountered: [NONE]
 **Goal**: Build dedicated views for links, images, videos, documents, and important messages — each with type-specific UX.
 
 **Timeline**: Day 13–15
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-16T10:53:00+05:30
 **Completed At**: —
 **Depends On**: Sprint 3 ✅
 
