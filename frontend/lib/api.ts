@@ -459,6 +459,64 @@ export function formatRelativeTime(timestamp: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Cluster types
+// ---------------------------------------------------------------------------
+
+export interface ClusterItem {
+  id: number;
+  chat_id: number;
+  label: string | null;
+  summary: string | null;
+  message_count: number;
+  date_range_start: string | null;
+  date_range_end: string | null;
+}
+
+export interface ClusterMessage {
+  id: number;
+  sender_id: number | null;
+  sender_name: string | null;
+  content: string;
+  timestamp: string;
+  type: string;
+  is_important: boolean;
+}
+
+export interface PaginatedClusterMessages {
+  cluster: ClusterItem;
+  messages: ClusterMessage[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Cluster endpoints
+// ---------------------------------------------------------------------------
+
+export async function getChatClusters(chatId: number): Promise<ClusterItem[]> {
+  return apiFetch(`/api/chats/${chatId}/clusters`);
+}
+
+export async function getClusterMessages(
+  chatId: number,
+  clusterId: number,
+  params?: {
+    page?: number;
+    page_size?: number;
+  }
+): Promise<PaginatedClusterMessages> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+  const qs = searchParams.toString();
+  return apiFetch(`/api/chats/${chatId}/clusters/${clusterId}/messages${qs ? `?${qs}` : ""}`);
+}
+
+// ---------------------------------------------------------------------------
 // Utility: YouTube thumbnail URL
 // ---------------------------------------------------------------------------
 

@@ -191,10 +191,29 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
         pdf_count = extract_pdfs_for_chat(db, chat_id)
         logger.info(f"[Pipeline] Chat {chat_id}: PDF extraction done — {pdf_count} PDFs extracted")
         
-        # ── Steps 5–7: Placeholders (future sprints) ──────────────────
-        for step in range(5, 8):
-            _update_pipeline_status(db, chat_id, step=step)
-            logger.info(f"[Pipeline] Chat {chat_id}: Step {step} — {PIPELINE_STEPS[step]} (skipped, future sprint)")
+        # ── Step 5: Generate Embeddings ────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 5 — Generating embeddings")
+        _update_pipeline_status(db, chat_id, step=5)
+        
+        from app.services.embedder import embed_messages
+        embedded_count = embed_messages(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: Embedding done — {embedded_count} messages embedded")
+        
+        # ── Step 6: Cluster Topics ─────────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 6 — Clustering topics")
+        _update_pipeline_status(db, chat_id, step=6)
+        
+        from app.services.clusterer import cluster_messages
+        cluster_count = cluster_messages(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: Clustering done — {cluster_count} clusters created")
+        
+        # ── Step 7: Label Clusters ─────────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 7 — Labeling clusters")
+        _update_pipeline_status(db, chat_id, step=7)
+        
+        from app.services.llm import label_clusters_for_chat
+        labeled_count = label_clusters_for_chat(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: Labeling done — {labeled_count} clusters labeled")
         
         # ── Step 8: Tag Importance ─────────────────────────────────────
         logger.info(f"[Pipeline] Chat {chat_id}: Step 8 — Tagging importance")
@@ -204,9 +223,13 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
         tagged_count = tag_important_messages(db, chat_id)
         logger.info(f"[Pipeline] Chat {chat_id}: Tagging done — {tagged_count} messages flagged")
         
-        # ── Step 9: Build FTS Index (placeholder) ──────────────────────
+        # ── Step 9: Build FTS Index ────────────────────────────────────
+        logger.info(f"[Pipeline] Chat {chat_id}: Step 9 — Building search index")
         _update_pipeline_status(db, chat_id, step=9)
-        logger.info(f"[Pipeline] Chat {chat_id}: Step 9 — {PIPELINE_STEPS[9]} (skipped, future sprint)")
+        
+        from app.services.fts_builder import build_fts_index
+        fts_count = build_fts_index(db, chat_id)
+        logger.info(f"[Pipeline] Chat {chat_id}: FTS index built — {fts_count} messages indexed")
         
         # ── Step 10: Mark Complete ─────────────────────────────────────
         logger.info(f"[Pipeline] Chat {chat_id}: Step 10 — Finalizing")

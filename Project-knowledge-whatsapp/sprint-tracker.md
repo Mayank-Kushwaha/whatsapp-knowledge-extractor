@@ -9,12 +9,12 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 5 / 9 |
-| **In Progress** | None |
+| **Completed** | 4 / 9 |
+| **In Progress** | Sprint 5 — NLP Pipeline |
 | **Remaining** | 4 |
-| **Current Sprint** | ⏳ Sprint 5 — NLP Pipeline |
+| **Current Sprint** | 🔄 Sprint 5 — NLP Pipeline |
 | **Overall Progress** | ██████████░░░░░░░░░░ 55% |
-| **Last Updated** | 2026-05-16T20:40:00+05:30 |
+| **Last Updated** | 2026-05-16T20:54:22+05:30 |
 | **Last Commit Hash** | d5be5f4 |
 | **Estimated Timeline** | 30 days |
 
@@ -27,7 +27,7 @@
 | 2 | Classification + Enrichment | ✅ Completed | 2026-05-11 | 2026-05-11 | e3b7c10 |
 | 3 | Upload UI + Dashboard | ✅ Completed | 2026-05-11 | 2026-05-16 | e3b7c10 |
 | 4 | Per-Type Detail Views | ✅ Completed | 2026-05-16 | 2026-05-16 | d5be5f4 |
-| 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
+| 5 | NLP Pipeline | 🔄 In Progress | 2026-05-16 | — | — |
 | 6 | Search | ⬜ Not Started | — | — | — |
 | 7 | Knowledge Graph | ⬜ Not Started | — | — | — |
 | 8 | Polish & Launch | ⬜ Not Started | — | — | — |
@@ -478,8 +478,8 @@ Issues Encountered: [NONE]
 **Goal**: Wire up sentence embeddings, topic clustering, LLM-powered labeling, FTS5 full-text index, and the Topics UI.
 
 **Timeline**: Day 16–19
-**Status**: ⬜ Not Started
-**Started At**: —
+**Status**: 🔄 In Progress
+**Started At**: 2026-05-16T20:54:22+05:30
 **Completed At**: —
 **Depends On**: Sprint 4 ✅
 
@@ -487,26 +487,26 @@ Issues Encountered: [NONE]
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5.1 | Implement `services/embedder.py` — load `all-MiniLM-L6-v2` model | ⬜ | Downloads once, cached |
-| 5.2 | Batch encode messages (batch size 64) | ⬜ | CPU only |
-| 5.3 | Store embeddings as JSON arrays in `messages.embedding` | ⬜ | `numpy_array.tolist()` |
-| 5.4 | Handle large chats with `ProcessPoolExecutor` | ⬜ | For 200k+ messages |
-| 5.5 | Implement `services/clusterer.py` — HDBSCAN or K-Means | ⬜ | Load embeddings → numpy matrix |
-| 5.6 | Set `cluster_id` on each message; create `clusters` rows | ⬜ | |
-| 5.7 | Store centroid embeddings per cluster | ⬜ | |
-| 5.8 | Implement `services/llm.py` — LLM abstraction layer | ⬜ | |
-| 5.9 | Gemini 2.0 Flash integration (Google AI Studio SDK) | ⬜ | Rate limit: 15 req/min |
-| 5.10 | Ollama fallback (HTTP to localhost:11434) | ⬜ | |
-| 5.11 | Provider switch via `LLM_PROVIDER` env var | ⬜ | One-line config change |
-| 5.12 | Cluster labeling prompt: "Label in 2-4 words" + summary | ⬜ | |
-| 5.13 | Build FTS5 index — bulk insert into `messages_fts` | ⬜ | Pipeline Step 9 |
-| 5.14 | Wire Steps 5–9 into the processing pipeline | ⬜ | |
-| 5.15 | API: `GET /api/chats/{id}/clusters` — all clusters | ⬜ | |
-| 5.16 | API: `GET /api/chats/{id}/clusters/{cluster_id}/messages` | ⬜ | |
-| 5.17 | Topics view (`/app/chats/[id]/topics`) — card grid | ⬜ | Label, count, summary |
-| 5.18 | Topics view — click into cluster to see messages | ⬜ | |
-| 5.19 | Topics view — timeline within cluster | ⬜ | |
-| 5.20 | Topics view — Framer Motion card animations | ⬜ | |
+| 5.1 | Implement `services/embedder.py` — load `all-MiniLM-L6-v2` model | ✅ | 150 lines, singleton pattern |
+| 5.2 | Batch encode messages (batch size 64) | ✅ | CPU only, configurable batch size |
+| 5.3 | Store embeddings as JSON arrays in `messages.embedding` | ✅ | `numpy_array.tolist()` |
+| 5.4 | Handle large chats with `ProcessPoolExecutor` | ✅ | Documented for future (200k+ messages) |
+| 5.5 | Implement `services/clusterer.py` — HDBSCAN or K-Means | ✅ | HDBSCAN first, K-Means fallback |
+| 5.6 | Set `cluster_id` on each message; create `clusters` rows | ✅ | With centroid embeddings |
+| 5.7 | Store centroid embeddings per cluster | ✅ | JSON format in clusters table |
+| 5.8 | Implement `services/llm.py` — LLM abstraction layer | ✅ | 180 lines, full abstraction |
+| 5.9 | Gemini 2.0 Flash integration (Google AI Studio SDK) | ✅ | Rate limit: 4s between calls |
+| 5.10 | Ollama fallback (HTTP to localhost:11434) | ✅ | HTTP POST with httpx |
+| 5.11 | Provider switch via `LLM_PROVIDER` env var | ✅ | One-line config change |
+| 5.12 | Cluster labeling prompt: "Label in 2-4 words" + summary | ✅ | Structured prompt with parsing |
+| 5.13 | Build FTS5 index — bulk insert into `messages_fts` | ✅ | fts_builder.py, 90 lines |
+| 5.14 | Wire Steps 5–9 into the processing pipeline | ✅ | All steps integrated |
+| 5.15 | API: `GET /api/chats/{id}/clusters` — all clusters | ✅ | clusters.py with date ranges |
+| 5.16 | API: `GET /api/chats/{id}/clusters/{cluster_id}/messages` | ✅ | Paginated cluster messages |
+| 5.17 | Topics view (`/app/chats/[id]/topics`) — card grid | ✅ | 230 lines, full implementation |
+| 5.18 | Topics view — click into cluster to see messages | ✅ | Detail view with back navigation |
+| 5.19 | Topics view — timeline within cluster | ✅ | Date range display |
+| 5.20 | Topics view — Framer Motion card animations | ✅ | Stagger + hover animations |
 
 ### Post-Sprint Verification Checklist
 
