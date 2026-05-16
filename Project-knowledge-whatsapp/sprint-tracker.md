@@ -9,13 +9,13 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 5 / 9 |
-| **In Progress** | Sprint 6 — Search |
+| **Completed** | 6 / 9 |
+| **In Progress** | None |
 | **Remaining** | 3 |
-| **Current Sprint** | 🔄 Sprint 6 — Search |
-| **Overall Progress** | ████████████░░░░░░░░ 66% |
-| **Last Updated** | 2026-05-16T21:24:05+05:30 |
-| **Last Commit Hash** | 8bb2174 |
+| **Current Sprint** | ⏳ Sprint 7 — Knowledge Graph |
+| **Overall Progress** | ██████████████░░░░░░ 77% |
+| **Last Updated** | 2026-05-16T22:03:33+05:30 |
+| **Last Commit Hash** | 046f26e |
 | **Estimated Timeline** | 30 days |
 
 ### Sprint Status Board
@@ -28,7 +28,7 @@
 | 3 | Upload UI + Dashboard | ✅ Completed | 2026-05-11 | 2026-05-16 | e3b7c10 |
 | 4 | Per-Type Detail Views | ✅ Completed | 2026-05-16 | 2026-05-16 | d5be5f4 |
 | 5 | NLP Pipeline | ✅ Completed | 2026-05-16 | 2026-05-16 | 8bb2174 |
-| 6 | Search | 🔄 In Progress | 2026-05-16 | — | — |
+| 6 | Search | ✅ Completed | 2026-05-16 | 2026-05-16 | 046f26e |
 | 7 | Knowledge Graph | ⬜ Not Started | — | — | — |
 | 8 | Polish & Launch | ⬜ Not Started | — | — | — |
 
@@ -562,9 +562,9 @@ Files Modified:
 **Goal**: Full-text keyword search + semantic search + structured filters across single and multiple chats with a polished search UI.
 
 **Timeline**: Day 20–22
-**Status**: 🔄 In Progress
+**Status**: ✅ Completed
 **Started At**: 2026-05-16T21:59:18+05:30
-**Completed At**: —
+**Completed At**: 2026-05-16T22:03:33+05:30
 **Depends On**: Sprint 5 ✅
 
 ### What To Do
@@ -612,8 +612,8 @@ git push
 ### Completion Log
 
 ```
-Sprint 6 Result: [PENDING]
-Commit Hash: [PENDING]
+Sprint 6 Result: SUCCESS
+Commit Hash: 046f26e
 Issues Encountered: [NONE]
 ```
 
