@@ -9,13 +9,13 @@
 | Metric | Value |
 |--------|-------|
 | **Total Sprints** | 9 (Sprint 0 → Sprint 8) |
-| **Completed** | 4 / 9 |
-| **In Progress** | Sprint 4 — Per-Type Detail Views |
-| **Remaining** | 5 |
-| **Current Sprint** | 🔄 Sprint 4 — Per-Type Detail Views |
-| **Overall Progress** | ████████░░░░░░░░░░░░ 44% |
-| **Last Updated** | 2026-05-16T10:53:00+05:30 |
-| **Last Commit Hash** | e3b7c10 |
+| **Completed** | 5 / 9 |
+| **In Progress** | None |
+| **Remaining** | 4 |
+| **Current Sprint** | ⏳ Sprint 5 — NLP Pipeline |
+| **Overall Progress** | ██████████░░░░░░░░░░ 55% |
+| **Last Updated** | 2026-05-16T20:40:00+05:30 |
+| **Last Commit Hash** | d5be5f4 |
 | **Estimated Timeline** | 30 days |
 
 ### Sprint Status Board
@@ -26,7 +26,7 @@
 | 1 | WhatsApp Parser + Upload API | ✅ Completed | 2026-05-10 | 2026-05-10 | b3d6dd5 |
 | 2 | Classification + Enrichment | ✅ Completed | 2026-05-11 | 2026-05-11 | e3b7c10 |
 | 3 | Upload UI + Dashboard | ✅ Completed | 2026-05-11 | 2026-05-16 | e3b7c10 |
-| 4 | Per-Type Detail Views | 🔄 In Progress | 2026-05-16 | — | — |
+| 4 | Per-Type Detail Views | ✅ Completed | 2026-05-16 | 2026-05-16 | d5be5f4 |
 | 5 | NLP Pipeline | ⬜ Not Started | — | — | — |
 | 6 | Search | ⬜ Not Started | — | — | — |
 | 7 | Knowledge Graph | ⬜ Not Started | — | — | — |
@@ -406,9 +406,9 @@ Issues Encountered: [NONE]
 **Goal**: Build dedicated views for links, images, videos, documents, and important messages — each with type-specific UX.
 
 **Timeline**: Day 13–15
-**Status**: 🔄 In Progress
+**Status**: ✅ Completed
 **Started At**: 2026-05-16T10:53:00+05:30
-**Completed At**: —
+**Completed At**: 2026-05-16T20:35:00+05:30
 **Depends On**: Sprint 3 ✅
 
 > **Skills to Use**: `impeccable`, `ui-ux-pro-max`, `frontend-design`, Framer Motion
@@ -417,41 +417,41 @@ Issues Encountered: [NONE]
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 4.1 | Links view (`/app/chats/[id]/links`) — URL list with title, domain, favicon, date | ⬜ | |
-| 4.2 | Links view — OG preview cards (title + description + image) | ⬜ | |
-| 4.3 | Links view — group by domain (YouTube, Drive, Amazon, etc.) | ⬜ | |
-| 4.4 | Links view — filter by domain, sender, date | ⬜ | |
-| 4.5 | Links view — Framer Motion list animations | ⬜ | |
-| 4.6 | Images view (`/app/chats/[id]/images`) — masonry grid layout | ⬜ | |
-| 4.7 | Images view — click to expand modal (Framer Motion) with sender + date | ⬜ | |
-| 4.8 | Images view — download individual or all images | ⬜ | |
-| 4.9 | Images view — lazy loading for performance | ⬜ | |
-| 4.10 | Videos view (`/app/chats/[id]/videos`) — video links with thumbnails | ⬜ | |
-| 4.11 | Videos view — YouTube embed preview | ⬜ | |
-| 4.12 | Videos view — local video HTML5 `<video>` playback | ⬜ | |
-| 4.13 | Documents view (`/app/chats/[id]/docs`) — file list with name, size, sender, date | ⬜ | |
-| 4.14 | Documents view — PDF text preview (first 500 chars) | ⬜ | |
-| 4.15 | Documents view — download button | ⬜ | |
-| 4.16 | Important view (`/app/chats/[id]/important`) — chronological feed | ⬜ | Amber highlight |
-| 4.17 | Important view — grouped by trigger type (keyword, emoji, manual) | ⬜ | |
-| 4.18 | Important view — manual flag/unflag toggle | ⬜ | |
-| 4.19 | Important view — export to markdown | ⬜ | |
-| 4.20 | Empty states for all views (no items → onboarding prompt) | ⬜ | |
+| 4.1 | Links view (`/app/chats/[id]/links`) — URL list with title, domain, favicon, date | ✅ | 389 lines, full implementation |
+| 4.2 | Links view — OG preview cards (title + description + image) | ✅ | LinkCard component with OG data |
+| 4.3 | Links view — group by domain (YouTube, Drive, Amazon, etc.) | ✅ | Domain filter chips with counts |
+| 4.4 | Links view — filter by domain, sender, date | ✅ | Collapsible filter panel |
+| 4.5 | Links view — Framer Motion list animations | ✅ | Stagger animations on cards |
+| 4.6 | Images view (`/app/chats/[id]/images`) — masonry grid layout | ✅ | CSS columns masonry layout |
+| 4.7 | Images view — click to expand modal (Framer Motion) with sender + date | ✅ | LightboxModal with spring animation |
+| 4.8 | Images view — download individual or all images | ✅ | Download button in lightbox |
+| 4.9 | Images view — lazy loading for performance | ✅ | IntersectionObserver implementation |
+| 4.10 | Videos view (`/app/chats/[id]/videos`) — video links with thumbnails | ✅ | YouTube + local videos combined |
+| 4.11 | Videos view — YouTube embed preview | ✅ | EmbedModal with iframe |
+| 4.12 | Videos view — local video HTML5 `<video>` playback | ✅ | Inline video controls |
+| 4.13 | Documents view (`/app/chats/[id]/docs`) — file list with name, size, sender, date | ✅ | DocumentCard with metadata |
+| 4.14 | Documents view — PDF text preview (first 500 chars) | ✅ | Collapsible preview panel |
+| 4.15 | Documents view — download button | ✅ | Download link with icon |
+| 4.16 | Important view (`/app/chats/[id]/important`) — chronological feed | ✅ | Amber gradient cards |
+| 4.17 | Important view — grouped by trigger type (keyword, emoji, manual) | ✅ | Filter chips with color coding |
+| 4.18 | Important view — manual flag/unflag toggle | ✅ | toggleImportance API integration |
+| 4.19 | Important view — export to markdown | ✅ | exportMarkdown function |
+| 4.20 | Empty states for all views (no items → onboarding prompt) | ✅ | EmptyState component in all 5 views |
 
 ### Post-Sprint Verification Checklist
 
 | # | Check | Pass? |
 |---|-------|-------|
-| V4.1 | Links view renders with OG cards and domain grouping | ⬜ |
-| V4.2 | Images served correctly from `data/media/` via FastAPI | ⬜ |
-| V4.3 | Image modal opens/closes with animation | ⬜ |
-| V4.4 | Videos view shows thumbnails and plays local videos | ⬜ |
-| V4.5 | Documents view shows PDF text preview | ⬜ |
-| V4.6 | Important view shows flagged messages with amber highlight | ⬜ |
-| V4.7 | Manual flag/unflag works end-to-end | ⬜ |
-| V4.8 | Empty states render when no items of a type exist | ⬜ |
-| V4.9 | All views use consistent type-based color coding | ⬜ |
-| V4.10 | All previous features still work, no regressions | ⬜ |
+| V4.1 | Links view renders with OG cards and domain grouping | ✅ |
+| V4.2 | Images served correctly from `data/media/` via FastAPI | ✅ |
+| V4.3 | Image modal opens/closes with animation | ✅ |
+| V4.4 | Videos view shows thumbnails and plays local videos | ✅ |
+| V4.5 | Documents view shows PDF text preview | ✅ |
+| V4.6 | Important view shows flagged messages with amber highlight | ✅ |
+| V4.7 | Manual flag/unflag works end-to-end | ✅ |
+| V4.8 | Empty states render when no items of a type exist | ✅ |
+| V4.9 | All views use consistent type-based color coding | ✅ |
+| V4.10 | All previous features still work, no regressions | ✅ |
 
 ### Git Commit
 
@@ -464,8 +464,8 @@ git push
 ### Completion Log
 
 ```
-Sprint 4 Result: [PENDING]
-Commit Hash: [PENDING]
+Sprint 4 Result: SUCCESS
+Commit Hash: d5be5f4
 Issues Encountered: [NONE]
 ```
 
