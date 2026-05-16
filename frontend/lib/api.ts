@@ -607,6 +607,60 @@ export async function searchGlobal(
 }
 
 // ---------------------------------------------------------------------------
+// Graph types
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  size: number;
+  color: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  weight: number;
+}
+
+export interface GraphStats {
+  total_nodes: number;
+  total_edges: number;
+  node_types: Record<string, number>;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: GraphStats;
+}
+
+// ---------------------------------------------------------------------------
+// Graph endpoints
+// ---------------------------------------------------------------------------
+
+export async function getChatGraph(
+  chatId: number,
+  params?: {
+    max_nodes?: number;
+    filter_type?: string;
+    filter_sender?: string;
+    filter_cluster?: number;
+  }
+): Promise<GraphData> {
+  const searchParams = new URLSearchParams();
+  if (params?.max_nodes) searchParams.set("max_nodes", String(params.max_nodes));
+  if (params?.filter_type) searchParams.set("filter_type", params.filter_type);
+  if (params?.filter_sender) searchParams.set("filter_sender", params.filter_sender);
+  if (params?.filter_cluster) searchParams.set("filter_cluster", String(params.filter_cluster));
+  const qs = searchParams.toString();
+  return apiFetch(`/api/chats/${chatId}/graph${qs ? `?${qs}` : ""}`);
+}
+
+// ---------------------------------------------------------------------------
 // Utility: YouTube thumbnail URL
 // ---------------------------------------------------------------------------
 

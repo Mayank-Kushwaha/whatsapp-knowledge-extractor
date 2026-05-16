@@ -43,6 +43,7 @@ from app.api.important import router as important_router
 from app.api.media import router as media_router
 from app.api.clusters import router as clusters_router
 from app.api.search import router as search_router
+from app.api.graph import router as graph_router
 
 app.include_router(upload_router)
 app.include_router(chats_router)
@@ -52,6 +53,7 @@ app.include_router(important_router)
 app.include_router(media_router)
 app.include_router(clusters_router)
 app.include_router(search_router)
+app.include_router(graph_router)
 
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origin
