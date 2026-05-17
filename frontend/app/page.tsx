@@ -15,6 +15,7 @@ import {
   Video,
   FileText,
   Star,
+  Settings,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -137,12 +138,28 @@ export default function LandingPage() {
             WKE
           </span>
         </div>
-        <Link
-          href="/app/upload"
-          className="px-5 py-2.5 rounded-full text-sm font-medium bg-white/8 border border-white/10 hover:bg-white/14 transition-all duration-300 hover:border-white/20"
-        >
-          Get Started
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/app/search"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground bg-white/5 border border-white/8 hover:bg-white/10 hover:border-white/15 transition-all duration-300"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Search</span>
+          </Link>
+          <Link
+            href="/app/settings"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground bg-white/5 border border-white/8 hover:bg-white/10 hover:border-white/15 transition-all duration-300"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Settings</span>
+          </Link>
+          <Link
+            href="/app/upload"
+            className="px-5 py-2.5 rounded-full text-sm font-medium bg-white/8 border border-white/10 hover:bg-white/14 transition-all duration-300 hover:border-white/20"
+          >
+            Get Started
+          </Link>
+        </div>
       </motion.nav>
 
       {/* ===== HERO SECTION ===== */}

@@ -19,6 +19,9 @@ import {
   ArrowRight,
   Loader2,
   TrendingUp,
+  Network,
+  Search,
+  Tags,
 } from "lucide-react";
 import {
   BarChart,
@@ -162,6 +165,7 @@ function TypePanel({
     pdf: "docs",
     document: "docs",
     important: "important",
+    topics: "topics",
   };
   const route = detailRoutes[type];
 
@@ -585,10 +589,34 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-8 flex items-start justify-between gap-4"
       >
-        <h1 className="text-2xl font-bold tracking-tight">{chat.name}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{dateRange}</p>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{chat.name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{dateRange}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link href={`/app/chats/${chatId}/graph`}>
+            <motion.div
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/18 hover:border-rose-500/35 transition-all duration-200"
+            >
+              <Network className="w-4 h-4" />
+              <span className="hidden sm:inline">Graph</span>
+            </motion.div>
+          </Link>
+          <Link href={`/app/chats/${chatId}/search`}>
+            <motion.div
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/18 hover:border-blue-500/35 transition-all duration-200"
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">Search</span>
+            </motion.div>
+          </Link>
+        </div>
       </motion.div>
 
       {/* Stat Cards */}
@@ -634,7 +662,31 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         transition={{ delay: 0.25, duration: 0.5 }}
         className="rounded-2xl p-5 glass-card mb-8"
       >
-        <h3 className="text-sm font-semibold mb-4 px-1">Content Breakdown</h3>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h3 className="text-sm font-semibold">Content Breakdown</h3>
+          <div className="flex items-center gap-2">
+            <Link href={`/app/chats/${chatId}/important`}>
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/18 hover:border-yellow-500/35 transition-all duration-200"
+              >
+                <Star className="w-3.5 h-3.5" />
+                Important
+              </motion.div>
+            </Link>
+            <Link href={`/app/chats/${chatId}/topics`}>
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/18 hover:border-indigo-500/35 transition-all duration-200"
+              >
+                <Tags className="w-3.5 h-3.5" />
+                Topics
+              </motion.div>
+            </Link>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
           {chat.type_breakdown
             .sort((a, b) => b.count - a.count)
