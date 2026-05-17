@@ -18,7 +18,25 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 # Server
 BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
 FRONTEND_PORT = int(os.getenv("FRONTEND_PORT", "3000"))
-FRONTEND_ORIGIN = f"http://localhost:{FRONTEND_PORT}"
+
+# CORS — supports multiple origins via comma-separated FRONTEND_ORIGIN env var.
+# In production set: FRONTEND_ORIGIN=https://your-app.vercel.app
+# Locally it falls back to localhost:3000.
+_raw_origins = os.getenv("FRONTEND_ORIGIN", f"http://localhost:{FRONTEND_PORT}")
+FRONTEND_ORIGIN = _raw_origins  # kept for backward-compat imports
+ALLOWED_ORIGINS: list[str] = [
+    o.strip() for o in _raw_origins.split(",") if o.strip()
+]
+
+# Always include localhost variants so local dev still works even when
+# FRONTEND_ORIGIN is set to a production URL.
+_local_defaults = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+for _origin in _local_defaults:
+    if _origin not in ALLOWED_ORIGINS:
+        ALLOWED_ORIGINS.append(_origin)
 
 # LLM
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")  # "gemini" or "ollama"

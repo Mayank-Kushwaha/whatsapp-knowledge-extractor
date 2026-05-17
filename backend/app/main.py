@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import FRONTEND_ORIGIN, MEDIA_DIR
+from app.core.config import ALLOWED_ORIGINS, MEDIA_DIR
 
 # Configure logging
 logging.basicConfig(
@@ -62,14 +62,11 @@ app.include_router(export_router)
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        FRONTEND_ORIGIN,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 # ---------------------------------------------------------------------------

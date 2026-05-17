@@ -1,0 +1,37 @@
+<svg width="680" height="160" viewBox="0 0 680 160" xmlns="http://www.w3.org/2000/svg">
+  <title>WhatsApp Knowledge Extractor</title>
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&amp;family=Inter:wght@500&amp;display=swap');
+      .logo-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 38px; fill: #1a1a2e; letter-spacing: -0.5px; }
+      .logo-sub   { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 22px; fill: #3d7a5e; letter-spacing: 1.5px; }
+    </style>
+    <clipPath id="ic">
+      <circle cx="80" cy="80" r="58"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background: transparent (no rect) -->
+
+  <!-- ICON -->
+  <circle cx="80" cy="80" r="58" fill="#1d9e75"/>
+  <polygon points="52,126 68,110 80,118" fill="#1d9e75"/>
+  <rect x="30" y="34" width="100" height="68" rx="14" fill="#0f6e56"/>
+
+  <!-- Brain lines -->
+  <line x1="80" y1="42" x2="80" y2="94" stroke="#9fe1cb" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M80 52 Q60 46 56 62 Q52 78 68 82 Q74 84 80 82" fill="none" stroke="#9fe1cb" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M80 58 Q64 55 62 66 Q60 76 72 78" fill="none" stroke="#9fe1cb" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+  <path d="M80 52 Q100 46 104 62 Q108 78 92 82 Q86 84 80 82" fill="none" stroke="#9fe1cb" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M80 58 Q96 55 98 66 Q100 76 88 78" fill="none" stroke="#9fe1cb" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+  <path d="M72 44 Q80 38 88 44" fill="none" stroke="#9fe1cb" stroke-width="1.6" stroke-linecap="round"/>
+
+  <!-- Divider -->
+  <line x1="162" y1="40" x2="162" y2="122" stroke="#3d7a5e" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="162" cy="36" r="3.5" fill="#1d9e75"/>
+  <circle cx="162" cy="126" r="3.5" fill="#1d9e75"/>
+
+  <!-- Text -->
+  <text x="182" y="90" class="logo-brand">WhatsApp</text>
+  <text x="184" y="118" class="logo-sub">KNOWLEDGE EXTRACTOR</text>
+</svg>

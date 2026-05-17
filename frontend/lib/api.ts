@@ -1,9 +1,26 @@
 /**
  * Typed API client for the WhatsApp Knowledge Extractor backend.
  * All fetch wrappers for FastAPI endpoints live here.
+ *
+ * URL strategy:
+ * - In production (Vercel): API_BASE is "" (empty string). All /api/* and
+ *   /media/* requests are relative URLs that Vercel's rewrite proxy in
+ *   next.config.ts forwards to the Render backend. This means zero CORS
+ *   issues because the browser sees requests going to the same origin.
+ * - In local dev: API_BASE falls back to http://localhost:8000 so direct
+ *   fetch calls still work when the rewrite proxy isn't in play.
+ *
+ * NEXT_PUBLIC_API_URL should NOT be set on Vercel — leave it unset so the
+ * rewrite proxy handles routing. Only set it if you need to bypass the proxy
+ * (e.g. server-side fetch in a Route Handler).
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Empty string = use relative URLs (goes through Next.js rewrite proxy).
+// Falls back to localhost only when running outside of Next.js (e.g. tests).
+const API_BASE =
+  typeof window !== "undefined"
+    ? ""
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ---------------------------------------------------------------------------
 // Generic helpers

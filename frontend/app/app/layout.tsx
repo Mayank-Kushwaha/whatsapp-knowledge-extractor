@@ -1,5 +1,5 @@
 "use client";
-
+<meta name="apple-mobile-web-app-title" content="whatsapp-knowledge-extractor" />
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -113,10 +113,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {/* Logo */}
               <div className="flex items-center justify-between px-5 pt-5 pb-4">
                 <Link href="/" className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <MessageSquareText className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-sm font-semibold tracking-tight">WKE</span>
+                  <img
+                    src="/whatsapp-knowledge-extractor-logo.png"
+                    alt="WhatsApp Knowledge Extractor"
+                    className="h-[50px] w-auto"
+                  />
                 </Link>
                 <button
                   onClick={toggleSidebar}

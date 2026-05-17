@@ -118,7 +118,7 @@ const typeIcons = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background relative pt-[72px]">
       {/* Background mesh gradient */}
       <div className="fixed inset-0 mesh-gradient opacity-60 pointer-events-none" />
       <div className="fixed inset-0 noise-overlay pointer-events-none" />
@@ -128,15 +128,14 @@ export default function LandingPage() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 flex items-center justify-between px-6 md:px-12 py-5"
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 border-b border-white/5 bg-background/80 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <MessageSquareText className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">
-            WKE
-          </span>
+          <img
+            src="/whatsapp-knowledge-extractor-logo.png"
+            alt="WhatsApp Knowledge Extractor"
+            className="h-[60px] w-auto"
+          />
         </div>
         <div className="flex items-center gap-2">
           <Link
