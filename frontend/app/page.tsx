@@ -153,10 +153,10 @@ export default function LandingPage() {
             <span className="hidden sm:inline">Settings</span>
           </Link>
           <Link
-            href="/app/upload"
+            href="/docs"
             className="px-5 py-2.5 rounded-full text-sm font-medium bg-white/8 border border-white/10 hover:bg-white/14 transition-all duration-300 hover:border-white/20"
           >
-            Get Started
+            Documentation
           </Link>
         </div>
       </motion.nav>
