@@ -1,5 +1,5 @@
 "use client";
-<meta name="apple-mobile-web-app-title" content="whatsapp-knowledge-extractor" />
+
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
