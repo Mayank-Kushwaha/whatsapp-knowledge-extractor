@@ -364,11 +364,19 @@ export async function getChatMedia(
 // Upload
 // ---------------------------------------------------------------------------
 
+// For uploads, bypass the Vercel proxy (4.5 MB limit) and go directly to the
+// Render backend. NEXT_PUBLIC_API_URL must be set to the Render service URL.
+// In local dev it falls back to localhost just like API_BASE does.
+const UPLOAD_URL =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_API_URL || ""
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export async function uploadChat(file: File): Promise<{ chat_id: number; status: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${API_BASE}/api/chats/upload`, {
+  const res = await fetch(`${UPLOAD_URL}/api/chats/upload`, {
     method: "POST",
     body: formData,
   });
