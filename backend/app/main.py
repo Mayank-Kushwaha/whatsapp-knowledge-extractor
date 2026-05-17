@@ -72,6 +72,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Static file serving for media
 # ---------------------------------------------------------------------------
+# Ensure the directory exists before StaticFiles tries to validate it.
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 # ---------------------------------------------------------------------------

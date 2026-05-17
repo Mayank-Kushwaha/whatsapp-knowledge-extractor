@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: whatsapp-extractor-api
+    runtime: python
+    rootDir: backend
+    # Only install dependencies during build — do NOT run alembic here.
+    # The persistent disk at /data is NOT mounted during the build phase,
+    # so any attempt to write to /data (including SQLite migrations) will
+    # fail with "Read-only file system". Migrations run at startup instead.
+    buildCommand: pip install -r requirements.txt
+    # At startup the persistent disk IS mounted, so alembic can write to
+    # /data/knowledge.db before the server begins accepting requests.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: EMBEDDING_BATCH_SIZE
+        value: "64"
+      # Set these in the Render dashboard — do not commit secrets here:
+      #   GEMINI_API_KEY
+      #   FRONTEND_ORIGIN   (set after you have your Vercel URL)
+      #   DATA_DIR          /data   (paid tier with persistent disk only)
+      #   MEDIA_DIR         /data/media
+      #   DB_PATH           /data/knowledge.db
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

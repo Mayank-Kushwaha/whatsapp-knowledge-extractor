@@ -48,6 +48,12 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
 
-# Ensure directories exist
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure directories exist at runtime.
+# Wrapped in try/except so that importing this module during the build phase
+# (e.g. when Alembic runs migrations) doesn't crash on a read-only filesystem
+# such as Render's build environment before the persistent disk is mounted.
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass

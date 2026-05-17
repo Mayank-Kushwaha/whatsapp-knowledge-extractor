@@ -100,8 +100,8 @@ git push origin main
 | **Branch** | `main` |
 | **Root Directory** | `backend` |
 | **Runtime** | `Python 3` |
-| **Build Command** | `pip install -r requirements.txt && alembic upgrade head` |
-| **Start Command** | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | **Instance Type** | Free (or Starter $7/mo for always-on + persistent disk) |
 
 > **Critical**: The start command must use `--host 0.0.0.0` and `--port $PORT`. Render injects the `PORT` environment variable — do not hardcode 8000.
