@@ -140,10 +140,11 @@ export default function LandingPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/app/search"
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground bg-white/5 border border-white/8 hover:bg-white/10 hover:border-white/15 transition-all duration-300"
+            className="group relative flex items-center gap-2 overflow-hidden rounded-full border border-cyan-400/20 bg-gradient-to-r from-sky-500/12 via-cyan-400/10 to-violet-500/12 px-4 py-2 text-sm font-medium text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_rgba(34,211,238,0.12)] transition-all duration-300 hover:border-cyan-300/35 hover:from-sky-500/20 hover:via-cyan-400/18 hover:to-violet-500/20 hover:text-white hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_18px_40px_rgba(59,130,246,0.18)]"
           >
-            <Search className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Search</span>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.16),transparent_42%)] opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
+            <Search className="relative z-10 h-3.5 w-3.5 text-cyan-200" />
+            <span className="relative z-10 hidden sm:inline">Search</span>
           </Link>
           <Link
             href="/app/settings"
@@ -152,12 +153,12 @@ export default function LandingPage() {
             <Settings className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Settings</span>
           </Link>
-          <Link
+          {/* <Link
             href="/docs"
             className="px-5 py-2.5 rounded-full text-sm font-medium bg-white/8 border border-white/10 hover:bg-white/14 transition-all duration-300 hover:border-white/20"
           >
             Documentation
-          </Link>
+          </Link> */}
         </div>
       </motion.nav>
 
@@ -218,13 +219,13 @@ export default function LandingPage() {
               </span>
             </motion.div>
           </Link>
-          <Link href="/app/chats">
+          <Link href="/docs">
             <motion.div
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full font-medium bg-white/6 border border-white/10 hover:bg-white/10 transition-all"
             >
-              View Dashboard
+              Documentation
             </motion.div>
           </Link>
         </motion.div>
