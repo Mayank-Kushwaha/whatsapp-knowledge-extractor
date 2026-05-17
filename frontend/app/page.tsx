@@ -117,7 +117,7 @@ const typeIcons = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-background relative">
       {/* Background mesh gradient */}
       <div className="fixed inset-0 mesh-gradient opacity-60 pointer-events-none" />
       <div className="fixed inset-0 noise-overlay pointer-events-none" />
