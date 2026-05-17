@@ -10,9 +10,13 @@
  * - In local dev: API_BASE falls back to http://localhost:8000 so direct
  *   fetch calls still work when the rewrite proxy isn't in play.
  *
- * NEXT_PUBLIC_API_URL should NOT be set on Vercel — leave it unset so the
- * rewrite proxy handles routing. Only set it if you need to bypass the proxy
- * (e.g. server-side fetch in a Route Handler).
+ * NEXT_PUBLIC_API_URL MUST be set on Vercel to your Render backend URL
+ * (e.g. https://your-service.onrender.com). It is used in two ways:
+ *   1. By next.config.ts at build time to configure the rewrite destination.
+ *   2. By uploadChat() at runtime to POST files directly to Render, bypassing
+ *      Vercel's 4.5 MB proxy limit. Without this set, uploads of any size will
+ *      be routed through the Vercel proxy and fail for files > 4.5 MB.
+ * All other API calls still use relative URLs through the rewrite proxy.
  */
 
 // Empty string = use relative URLs (goes through Next.js rewrite proxy).
