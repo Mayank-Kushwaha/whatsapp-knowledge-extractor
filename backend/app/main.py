@@ -44,6 +44,7 @@ from app.api.media import router as media_router
 from app.api.clusters import router as clusters_router
 from app.api.search import router as search_router
 from app.api.graph import router as graph_router
+from app.api.export import router as export_router
 
 app.include_router(upload_router)
 app.include_router(chats_router)
@@ -54,6 +55,7 @@ app.include_router(media_router)
 app.include_router(clusters_router)
 app.include_router(search_router)
 app.include_router(graph_router)
+app.include_router(export_router)
 
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origin
