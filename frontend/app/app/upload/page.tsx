@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import {
@@ -14,12 +14,22 @@ import {
   ArrowRight,
   X,
 } from "lucide-react";
-import { uploadChat, createProgressStream, PIPELINE_STEPS } from "@/lib/api";
+import { uploadChat, createProgressStream, PIPELINE_STEPS, getChat } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+type ProgressPayload = {
+  step?: number;
+  current_step?: number;
+  step_name?: string;
+  steps_complete?: number;
+  steps_total?: number;
+  status?: string;
+  error?: string;
+};
 
 interface PipelineStep {
   step: number;
@@ -28,31 +38,196 @@ interface PipelineStep {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildStepsFromProgress(data?: ProgressPayload): PipelineStep[] {
+  const stepNum = Math.max(1, Math.min(data?.current_step ?? data?.step ?? 1, 10));
+  const stepsComplete = typeof data?.steps_complete === "number"
+    ? Math.max(0, Math.min(data.steps_complete, 10))
+    : Math.max(stepNum - 1, 0);
+  const hasError = data?.status === "error";
+
+  return Object.entries(PIPELINE_STEPS).map(([num, name]) => {
+    const step = parseInt(num, 10);
+    let status: PipelineStep["status"] = "pending";
+
+    if (stepsComplete >= 10 || data?.status === "ready" || data?.status === "complete") {
+      status = "done";
+    } else if (step <= stepsComplete) {
+      status = "done";
+    } else if (step === stepNum) {
+      status = hasError ? "error" : "active";
+    }
+
+    return { step, name, status };
+  });
+}
+
+function getProgressPercent(steps: PipelineStep[], completed: boolean): number {
+  if (completed) return 100;
+  if (steps.length === 0) return 0;
+  return Math.round((steps.filter((s) => s.status === "done").length / steps.length) * 100);
+}
+
+// ---------------------------------------------------------------------------
 // Upload Page
 // ---------------------------------------------------------------------------
 
 export default function UploadPage() {
   const router = useRouter();
-  const { setUploadState, resetUploadState } = useAppStore();
+  const searchParams = useSearchParams();
+  const updateChatIdParam = searchParams.get("chatId");
+  const updateChatId = updateChatIdParam ? parseInt(updateChatIdParam, 10) : null;
+  const isUpdateMode = Number.isFinite(updateChatId);
+
+  const {
+    setUploadState,
+    resetUploadState,
+    isUploading,
+    uploadChatId,
+    uploadProgress,
+  } = useAppStore();
 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [chatId, setChatId] = useState<number | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [completed, setCompleted] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Initialize pipeline steps
-  const initSteps = (): PipelineStep[] =>
-    Object.entries(PIPELINE_STEPS).map(([num, name]) => ({
-      step: parseInt(num),
-      name,
-      status: "pending" as const,
-    }));
+  const startTrackingProgress = useCallback((chatId: number, initial?: ProgressPayload) => {
+    setActiveChatId(chatId);
+    setProcessing(true);
+    setCompleted(false);
 
-  // Handle file drop
+    const initialPayload = initial ?? {
+      current_step: 1,
+      steps_complete: 0,
+      steps_total: 10,
+      status: "processing",
+    };
+
+    setSteps(buildStepsFromProgress(initialPayload));
+    setUploadState({
+      isUploading: true,
+      chatId,
+      progress: {
+        step: initialPayload.current_step ?? initialPayload.step ?? 1,
+        step_name:
+          initialPayload.step_name ||
+          PIPELINE_STEPS[initialPayload.current_step ?? initialPayload.step ?? 1] ||
+          "Parsing messages",
+        steps_total: initialPayload.steps_total || 10,
+        status: initialPayload.status || "processing",
+      },
+    });
+
+    eventSourceRef.current?.close();
+    const es = createProgressStream(chatId);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const data: ProgressPayload = JSON.parse(event.data);
+
+        if (data.status === "error") {
+          setError(data.error || "Pipeline error occurred");
+          setProcessing(false);
+          setSteps(buildStepsFromProgress({ ...data, status: "error" }));
+          resetUploadState();
+          es.close();
+          eventSourceRef.current = null;
+          return;
+        }
+
+        const normalizedProgress = {
+          step: data.current_step ?? data.step ?? 1,
+          step_name:
+            data.step_name ||
+            PIPELINE_STEPS[data.current_step ?? data.step ?? 1] ||
+            `Step ${data.current_step ?? data.step ?? 1}`,
+          steps_total: data.steps_total || 10,
+          status: data.status || "processing",
+        };
+
+        setSteps(buildStepsFromProgress(data));
+        setUploadState({
+          isUploading: normalizedProgress.status !== "ready" && normalizedProgress.status !== "complete",
+          chatId,
+          progress: normalizedProgress,
+        });
+
+        if (data.status === "ready" || data.status === "complete") {
+          setCompleted(true);
+          setProcessing(false);
+          setSteps(buildStepsFromProgress({ ...data, steps_complete: 10, status: "ready" }));
+          resetUploadState();
+          es.close();
+          eventSourceRef.current = null;
+
+          setTimeout(() => {
+            router.push(`/app/chats/${chatId}`);
+          }, 1500);
+        }
+      } catch {
+        // Ignore parse errors from SSE
+      }
+    };
+
+    es.onerror = () => {
+      setTimeout(async () => {
+        try {
+          const chat = await getChat(chatId);
+          if (chat.status === "ready") {
+            setCompleted(true);
+            setProcessing(false);
+            setSteps(buildStepsFromProgress({ current_step: 10, steps_complete: 10, status: "ready" }));
+            resetUploadState();
+            router.push(`/app/chats/${chatId}`);
+          }
+        } catch {
+          // ignore
+        }
+      }, 2000);
+
+      es.close();
+      eventSourceRef.current = null;
+    };
+  }, [resetUploadState, router, setUploadState]);
+
+  useEffect(() => {
+    if (isUpdateMode && updateChatId && isUploading && uploadChatId === updateChatId && uploadProgress) {
+      const derived: ProgressPayload = {
+        step: uploadProgress.step,
+        step_name: uploadProgress.step_name,
+        steps_total: uploadProgress.steps_total,
+        status: uploadProgress.status,
+        current_step: uploadProgress.step,
+        steps_complete:
+          uploadProgress.status === "ready" || uploadProgress.status === "complete"
+            ? 10
+            : Math.max((uploadProgress.step || 1) - 1, 0),
+      };
+
+      setActiveChatId(updateChatId);
+      setProcessing(true);
+      setCompleted(uploadProgress.status === "ready" || uploadProgress.status === "complete");
+      setSteps(buildStepsFromProgress(derived));
+
+      if (!eventSourceRef.current) {
+        startTrackingProgress(updateChatId, derived);
+      }
+    }
+
+    return () => {
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+    };
+  }, [isUpdateMode, updateChatId, isUploading, uploadChatId, uploadProgress, startTrackingProgress]);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setError(null);
     if (acceptedFiles.length > 0) {
@@ -76,13 +251,11 @@ export default function UploadPage() {
     multiple: false,
   });
 
-  // Remove selected file
   const removeFile = () => {
     setFile(null);
     setError(null);
   };
 
-  // Handle upload
   const handleUpload = async () => {
     if (!file) return;
 
@@ -90,101 +263,12 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      // Upload file
-      const result = await uploadChat(file);
-      setChatId(result.chat_id);
-      setUploading(false);
-      setProcessing(true);
-
-      // Initialize steps
-      const pipelineSteps = initSteps();
-      setSteps(pipelineSteps);
-
-      setUploadState({
-        isUploading: true,
-        chatId: result.chat_id,
+      const result = await uploadChat(file, {
+        chatId: isUpdateMode ? updateChatId ?? undefined : undefined,
       });
 
-      // Connect to SSE progress stream
-      const es = createProgressStream(result.chat_id);
-
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.status === "complete") {
-            setCompleted(true);
-            setProcessing(false);
-            setSteps((prev) =>
-              prev.map((s) => ({ ...s, status: "done" as const }))
-            );
-            resetUploadState();
-            es.close();
-
-            // Auto-redirect after short delay
-            setTimeout(() => {
-              router.push(`/app/chats/${result.chat_id}`);
-            }, 1500);
-            return;
-          }
-
-          if (data.status === "error") {
-            setError(data.error || "Pipeline error occurred");
-            setProcessing(false);
-            resetUploadState();
-            es.close();
-            return;
-          }
-
-          // Update step progress
-          const stepNum = data.current_step || data.step;
-          if (stepNum) {
-            setCurrentStep(stepNum);
-            setSteps((prev) =>
-              prev.map((s) => ({
-                ...s,
-                status:
-                  s.step < stepNum
-                    ? "done"
-                    : s.step === stepNum
-                      ? "active"
-                      : "pending",
-              }))
-            );
-
-            setUploadState({
-              isUploading: true,
-              progress: {
-                step: stepNum,
-                step_name: PIPELINE_STEPS[stepNum] || `Step ${stepNum}`,
-                steps_total: 10,
-                status: "processing",
-              },
-            });
-          }
-        } catch {
-          // Ignore parse errors from SSE
-        }
-      };
-
-      es.onerror = () => {
-        // SSE connection lost — check if processing is done
-        setTimeout(async () => {
-          try {
-            const { getChat } = await import("@/lib/api");
-            const chat = await getChat(result.chat_id);
-            if (chat.status === "ready") {
-              setCompleted(true);
-              setProcessing(false);
-              resetUploadState();
-              router.push(`/app/chats/${result.chat_id}`);
-            }
-          } catch {
-            // ignore
-          }
-        }, 2000);
-        es.close();
-      };
+      setUploading(false);
+      startTrackingProgress(result.chat_id);
     } catch (err) {
       setUploading(false);
       setProcessing(false);
@@ -193,40 +277,38 @@ export default function UploadPage() {
     }
   };
 
-  // File icon
+  const showingTrackedProgress = processing || completed || (!!activeChatId && activeChatId === updateChatId);
+  const progress = getProgressPercent(steps, completed);
   const FileIcon = file?.name.endsWith(".zip") ? FileArchive : FileText;
-
-  // Progress percentage
-  const progress = steps.length > 0
-    ? Math.round((steps.filter((s) => s.status === "done").length / steps.length) * 100)
-    : 0;
 
   return (
     <div className="flex items-center justify-center min-h-full p-6">
       <div className="w-full max-w-xl">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <h1 className="text-2xl font-bold tracking-tight">Upload Chat Export</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isUpdateMode ? "Update Chat Export" : "Upload Chat Export"}
+          </h1>
           <p className="mt-2 text-muted-foreground">
-            Drop your WhatsApp <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 font-mono">.txt</code> or{" "}
-            <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 font-mono">.zip</code> export
+            {isUpdateMode ? "Upload the latest WhatsApp export to replace this chat dashboard." : "Drop your WhatsApp "}
+            {!isUpdateMode && <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 font-mono">.txt</code>}
+            {!isUpdateMode && " or "}
+            {!isUpdateMode && <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 font-mono">.zip</code>}
+            {!isUpdateMode && " export"}
           </p>
         </motion.div>
 
-        {/* Upload zone or Progress */}
         <AnimatePresence mode="wait">
-          {!processing && !completed ? (
+          {!showingTrackedProgress ? (
             <motion.div
               key="upload"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
             >
-              {/* Dropzone */}
               <div
                 {...getRootProps()}
                 className={`relative rounded-2xl border-2 border-dashed p-12 text-center cursor-pointer transition-all duration-300 ${
@@ -296,7 +378,6 @@ export default function UploadPage() {
                 </AnimatePresence>
               </div>
 
-              {/* Error */}
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -311,7 +392,6 @@ export default function UploadPage() {
                 )}
               </AnimatePresence>
 
-              {/* Upload button */}
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
@@ -327,7 +407,7 @@ export default function UploadPage() {
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    Start Processing
+                    {isUpdateMode ? "Update Chat" : "Start Processing"}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -340,18 +420,17 @@ export default function UploadPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="rounded-2xl border border-white/8 bg-card/50 backdrop-blur-xl p-8"
             >
-              {/* Overall progress bar */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">
                     {completed ? "Processing complete!" : "Processing your chat..."}
                   </span>
-                  <span className="text-sm text-muted-foreground">{completed ? 100 : progress}%</span>
+                  <span className="text-sm text-muted-foreground">{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${completed ? 100 : progress}%` }}
+                    animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
                     className={`h-full rounded-full ${
                       completed
@@ -362,7 +441,6 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              {/* Step list */}
               <div className="space-y-2">
                 {steps.map((step, i) => (
                   <motion.div
@@ -375,7 +453,9 @@ export default function UploadPage() {
                         ? "bg-blue-500/8 text-foreground"
                         : step.status === "done"
                           ? "text-muted-foreground"
-                          : "text-muted-foreground/50"
+                          : step.status === "error"
+                            ? "text-red-400"
+                            : "text-muted-foreground/50"
                     }`}
                   >
                     <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
@@ -396,7 +476,6 @@ export default function UploadPage() {
                 ))}
               </div>
 
-              {/* Completed message */}
               <AnimatePresence>
                 {completed && (
                   <motion.div

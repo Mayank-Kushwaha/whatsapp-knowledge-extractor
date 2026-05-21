@@ -372,13 +372,17 @@ export async function getChatMedia(
 // Render backend. NEXT_PUBLIC_API_URL must be set to the Render service URL.
 // In local dev it falls back to localhost just like API_BASE does.
 const UPLOAD_URL =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_API_URL || ""
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export async function uploadChat(file: File): Promise<{ chat_id: number; status: string }> {
+export async function uploadChat(
+  file: File,
+  options?: { chatId?: number }
+): Promise<{ chat_id: number; status: string; message?: string; name?: string }> {
   const formData = new FormData();
   formData.append("file", file);
+  if (options?.chatId) {
+    formData.append("chat_id", String(options.chatId));
+  }
 
   const res = await fetch(`${UPLOAD_URL}/api/chats/upload`, {
     method: "POST",
@@ -399,6 +403,14 @@ export async function uploadChat(file: File): Promise<{ chat_id: number; status:
  */
 export function createProgressStream(chatId: number): EventSource {
   return new EventSource(`${API_BASE}/api/chats/${chatId}/progress`);
+}
+
+export async function deleteChat(
+  chatId: number
+): Promise<{ success: boolean; chat_id: number; message: string }> {
+  return apiFetch(`/api/chats/${chatId}`, {
+    method: "DELETE",
+  });
 }
 
 // ---------------------------------------------------------------------------

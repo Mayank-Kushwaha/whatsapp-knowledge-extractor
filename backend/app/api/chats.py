@@ -1,17 +1,21 @@
 """Chat CRUD API routes.
 
-GET  /api/chats          — List all chats
-GET  /api/chats/{id}     — Chat details + stats
+GET    /api/chats          — List all chats
+GET    /api/chats/{id}     — Chat details + stats
+DELETE /api/chats/{id}     — Delete a chat and all related data
 """
 
 from datetime import datetime
 from typing import Optional
+
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.config import MEDIA_DIR
 from app.models.db import Chat, Message, Sender, PipelineStatus, get_db
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
@@ -171,3 +175,28 @@ async def get_chat(
         pipeline=pipeline_info,
         type_breakdown=type_breakdown,
     )
+
+
+@router.delete("/{chat_id}")
+async def delete_chat(
+    chat_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete a chat and all related database/media data."""
+    chat = db.query(Chat).filter(Chat.id == chat_id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    media_dir = MEDIA_DIR / str(chat_id)
+
+    db.delete(chat)
+    db.commit()
+
+    if media_dir.exists():
+        shutil.rmtree(media_dir, ignore_errors=True)
+
+    return {
+        "success": True,
+        "chat_id": chat_id,
+        "message": "Chat deleted successfully",
+    }

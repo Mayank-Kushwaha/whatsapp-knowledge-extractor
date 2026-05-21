@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, use } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -22,6 +23,8 @@ import {
   Network,
   Search,
   Tags,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   BarChart,
@@ -34,7 +37,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { getChat, getChatMessages, getChatLinkDomains, TYPE_CONFIG, type ChatDetail, type TypeBreakdown, type SenderInfo } from "@/lib/api";
+import { deleteChat, getChat, getChatMessages, getChatLinkDomains, TYPE_CONFIG, type ChatDetail, type TypeBreakdown, type SenderInfo } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
@@ -521,10 +524,12 @@ function DomainBreakdownChart({ chatId }: { chatId: number }) {
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const router = useRouter();
   const chatId = parseInt(resolvedParams.id);
   const { setCurrentChat } = useAppStore();
   const [chat, setChat] = useState<ChatDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function fetchChat() {
@@ -540,6 +545,25 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     }
     fetchChat();
   }, [chatId, setCurrentChat]);
+
+  const handleDelete = async () => {
+    if (!chat || deleting) return;
+
+    const confirmed = window.confirm(`Delete all data for "${chat.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await deleteChat(chatId);
+      setCurrentChat(null);
+      router.push("/app/chats");
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+      window.alert("Failed to delete chat. Please try again.");
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -595,7 +619,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
           <h1 className="text-2xl font-bold tracking-tight">{chat.name}</h1>
           <p className="text-sm text-muted-foreground mt-1">{dateRange}</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
           <Link href={`/app/chats/${chatId}/graph`}>
             <motion.div
               whileHover={{ scale: 1.04 }}
@@ -616,6 +640,26 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
               <span className="hidden sm:inline">Search</span>
             </motion.div>
           </Link>
+          <Link href={`/app/upload?chatId=${chatId}`}>
+            <motion.div
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/18 hover:border-amber-500/35 transition-all duration-200"
+            >
+              <Pencil className="w-4 h-4" />
+              <span className="hidden sm:inline">Update</span>
+            </motion.div>
+          </Link>
+          <motion.button
+            whileHover={{ scale: deleting ? 1 : 1.04 }}
+            whileTap={{ scale: deleting ? 1 : 0.96 }}
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/18 hover:border-red-500/35 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="hidden sm:inline">{deleting ? "Deleting..." : "Delete"}</span>
+          </motion.button>
         </div>
       </motion.div>
 

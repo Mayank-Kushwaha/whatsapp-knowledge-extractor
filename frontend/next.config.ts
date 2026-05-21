@@ -12,6 +12,9 @@ const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: "100mb",
+  },
   // ---------------------------------------------------------------------------
   // API + media proxy rewrites
   // In production on Vercel these rewrites forward requests to the Render
