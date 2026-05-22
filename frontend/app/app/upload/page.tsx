@@ -52,12 +52,14 @@ function buildStepsFromProgress(data?: ProgressPayload): PipelineStep[] {
     const step = parseInt(num, 10);
     let status: PipelineStep["status"] = "pending";
 
-    if (stepsComplete >= 10 || data?.status === "ready" || data?.status === "complete") {
+    if (data?.status === "ready" || data?.status === "complete") {
       status = "done";
+    } else if (hasError && step === stepNum) {
+      status = "error";
     } else if (step <= stepsComplete) {
       status = "done";
-    } else if (step === stepNum) {
-      status = hasError ? "error" : "active";
+    } else if (step === stepNum || step === stepsComplete + 1) {
+      status = "active";
     }
 
     return { step, name, status };
@@ -97,8 +99,111 @@ export default function UploadPage() {
   const [completed, setCompleted] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const progressPollRef = useRef<number | null>(null);
+  const redirectedRef = useRef(false);
 
   const startTrackingProgress = useCallback((chatId: number, initial?: ProgressPayload) => {
+    const stopPolling = () => {
+      if (progressPollRef.current) {
+        window.clearInterval(progressPollRef.current);
+        progressPollRef.current = null;
+      }
+    };
+
+    const finalizeProgress = (targetChatId: number) => {
+      if (redirectedRef.current) return;
+      redirectedRef.current = true;
+      setCompleted(true);
+      setProcessing(false);
+      setSteps(buildStepsFromProgress({ current_step: 10, steps_complete: 10, status: "ready" }));
+      resetUploadState();
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+      stopPolling();
+
+      setTimeout(() => {
+        router.push(`/app/chats/${targetChatId}`);
+      }, 300);
+    };
+
+    const failProgress = (message: string, data?: ProgressPayload) => {
+      setError(message);
+      setProcessing(false);
+      setCompleted(false);
+      setSteps(buildStepsFromProgress({ ...(data ?? {}), status: "error" }));
+      resetUploadState();
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+      stopPolling();
+    };
+
+    const applyProgress = (data: ProgressPayload) => {
+      const normalizedProgress = {
+        step: data.current_step ?? data.step ?? 1,
+        step_name:
+          data.step_name ||
+          PIPELINE_STEPS[data.current_step ?? data.step ?? 1] ||
+          `Step ${data.current_step ?? data.step ?? 1}`,
+        steps_total: data.steps_total || 10,
+        status: data.status || "processing",
+      };
+
+      setActiveChatId(chatId);
+      setProcessing(normalizedProgress.status !== "ready" && normalizedProgress.status !== "complete");
+      setCompleted(normalizedProgress.status === "ready" || normalizedProgress.status === "complete");
+      setSteps(buildStepsFromProgress({
+        ...data,
+        current_step: normalizedProgress.step,
+        step_name: normalizedProgress.step_name,
+        steps_total: normalizedProgress.steps_total,
+        status: normalizedProgress.status,
+      }));
+      setUploadState({
+        isUploading: normalizedProgress.status !== "ready" && normalizedProgress.status !== "complete",
+        chatId,
+        progress: normalizedProgress,
+      });
+
+      if (normalizedProgress.status === "ready" || normalizedProgress.status === "complete") {
+        finalizeProgress(chatId);
+      }
+    };
+
+    const syncFromChat = async () => {
+      try {
+        const chat = await getChat(chatId);
+        const pipeline = chat.pipeline;
+
+        if (chat.status === "ready") {
+          finalizeProgress(chatId);
+          return;
+        }
+
+        if (chat.status === "error") {
+          failProgress("Pipeline error occurred", {
+            current_step: pipeline?.current_step ?? initial?.current_step ?? 1,
+            steps_complete: pipeline?.steps_complete ?? initial?.steps_complete ?? 0,
+            steps_total: pipeline?.steps_total ?? initial?.steps_total ?? 10,
+            status: "error",
+          });
+          return;
+        }
+
+        if (pipeline) {
+          applyProgress({
+            current_step: pipeline.current_step,
+            steps_complete: pipeline.steps_complete,
+            steps_total: pipeline.steps_total,
+            status: chat.status,
+            step_name: PIPELINE_STEPS[pipeline.current_step] || `Step ${pipeline.current_step}`,
+          });
+        }
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    redirectedRef.current = false;
     setActiveChatId(chatId);
     setProcessing(true);
     setCompleted(false);
@@ -110,20 +215,13 @@ export default function UploadPage() {
       status: "processing",
     };
 
-    setSteps(buildStepsFromProgress(initialPayload));
-    setUploadState({
-      isUploading: true,
-      chatId,
-      progress: {
-        step: initialPayload.current_step ?? initialPayload.step ?? 1,
-        step_name:
-          initialPayload.step_name ||
-          PIPELINE_STEPS[initialPayload.current_step ?? initialPayload.step ?? 1] ||
-          "Parsing messages",
-        steps_total: initialPayload.steps_total || 10,
-        status: initialPayload.status || "processing",
-      },
-    });
+    applyProgress(initialPayload);
+
+    stopPolling();
+    progressPollRef.current = window.setInterval(() => {
+      void syncFromChat();
+    }, 1000);
+    void syncFromChat();
 
     eventSourceRef.current?.close();
     const es = createProgressStream(chatId);
@@ -134,99 +232,54 @@ export default function UploadPage() {
         const data: ProgressPayload = JSON.parse(event.data);
 
         if (data.status === "error") {
-          setError(data.error || "Pipeline error occurred");
-          setProcessing(false);
-          setSteps(buildStepsFromProgress({ ...data, status: "error" }));
-          resetUploadState();
-          es.close();
-          eventSourceRef.current = null;
+          failProgress(data.error || "Pipeline error occurred", data);
           return;
         }
 
-        const normalizedProgress = {
-          step: data.current_step ?? data.step ?? 1,
-          step_name:
-            data.step_name ||
-            PIPELINE_STEPS[data.current_step ?? data.step ?? 1] ||
-            `Step ${data.current_step ?? data.step ?? 1}`,
-          steps_total: data.steps_total || 10,
-          status: data.status || "processing",
-        };
-
-        setSteps(buildStepsFromProgress(data));
-        setUploadState({
-          isUploading: normalizedProgress.status !== "ready" && normalizedProgress.status !== "complete",
-          chatId,
-          progress: normalizedProgress,
-        });
-
-        if (data.status === "ready" || data.status === "complete") {
-          setCompleted(true);
-          setProcessing(false);
-          setSteps(buildStepsFromProgress({ ...data, steps_complete: 10, status: "ready" }));
-          resetUploadState();
-          es.close();
-          eventSourceRef.current = null;
-
-          setTimeout(() => {
-            router.push(`/app/chats/${chatId}`);
-          }, 1500);
-        }
+        applyProgress(data);
       } catch {
         // Ignore parse errors from SSE
       }
     };
 
     es.onerror = () => {
-      setTimeout(async () => {
-        try {
-          const chat = await getChat(chatId);
-          if (chat.status === "ready") {
-            setCompleted(true);
-            setProcessing(false);
-            setSteps(buildStepsFromProgress({ current_step: 10, steps_complete: 10, status: "ready" }));
-            resetUploadState();
-            router.push(`/app/chats/${chatId}`);
-          }
-        } catch {
-          // ignore
-        }
-      }, 2000);
-
       es.close();
       eventSourceRef.current = null;
     };
   }, [resetUploadState, router, setUploadState]);
 
   useEffect(() => {
-    if (isUpdateMode && updateChatId && isUploading && uploadChatId === updateChatId && uploadProgress) {
-      const derived: ProgressPayload = {
-        step: uploadProgress.step,
-        step_name: uploadProgress.step_name,
-        steps_total: uploadProgress.steps_total,
-        status: uploadProgress.status,
-        current_step: uploadProgress.step,
-        steps_complete:
-          uploadProgress.status === "ready" || uploadProgress.status === "complete"
-            ? 10
-            : Math.max((uploadProgress.step || 1) - 1, 0),
-      };
-
-      setActiveChatId(updateChatId);
-      setProcessing(true);
-      setCompleted(uploadProgress.status === "ready" || uploadProgress.status === "complete");
-      setSteps(buildStepsFromProgress(derived));
-
-      if (!eventSourceRef.current) {
-        startTrackingProgress(updateChatId, derived);
-      }
+    if (!isUpdateMode || !updateChatId || !isUploading || uploadChatId !== updateChatId || !uploadProgress) {
+      return;
     }
 
+    const derived: ProgressPayload = {
+      step: uploadProgress.step,
+      step_name: uploadProgress.step_name,
+      steps_total: uploadProgress.steps_total,
+      status: uploadProgress.status,
+      current_step: uploadProgress.step,
+      steps_complete:
+        uploadProgress.status === "ready" || uploadProgress.status === "complete"
+          ? 10
+          : Math.max((uploadProgress.step || 1) - 1, 0),
+    };
+
+    if (!eventSourceRef.current && !progressPollRef.current) {
+      startTrackingProgress(updateChatId, derived);
+    }
+  }, [isUpdateMode, updateChatId, isUploading, uploadChatId, uploadProgress, startTrackingProgress]);
+
+  useEffect(() => {
     return () => {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
+      if (progressPollRef.current) {
+        window.clearInterval(progressPollRef.current);
+        progressPollRef.current = null;
+      }
     };
-  }, [isUpdateMode, updateChatId, isUploading, uploadChatId, uploadProgress, startTrackingProgress]);
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setError(null);
