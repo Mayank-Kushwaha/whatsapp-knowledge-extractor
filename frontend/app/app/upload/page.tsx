@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
@@ -76,7 +76,7 @@ function getProgressPercent(steps: PipelineStep[], completed: boolean): number {
 // Upload Page
 // ---------------------------------------------------------------------------
 
-export default function UploadPage() {
+function UploadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const updateChatIdParam = searchParams.get("chatId");
@@ -551,5 +551,13 @@ export default function UploadPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={null}>
+      <UploadPageContent />
+    </Suspense>
   );
 }
