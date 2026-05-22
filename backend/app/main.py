@@ -58,13 +58,25 @@ app.include_router(graph_router)
 app.include_router(export_router)
 
 # ---------------------------------------------------------------------------
-# CORS — allow frontend origin
+# CORS — fully permissive
 # ---------------------------------------------------------------------------
+# The frontend never sends cookies/credentials to this API, so we can safely
+# use the maximally permissive CORS config: allow_origins=["*"] paired with
+# allow_credentials=False. This eliminates CORS as a possible cause of any
+# "Failed to fetch" errors regardless of which Vercel preview/prod URL the
+# browser is on. If you later add credentialed endpoints, tighten this to
+# an explicit origin list and set allow_credentials=True.
+logger = logging.getLogger(__name__)
+logger.info(
+    f"CORS configured: allow_origins=['*'], allow_credentials=False "
+    f"(explicit allow-list from FRONTEND_ORIGIN: {ALLOWED_ORIGINS}, "
+    f"regex: {ALLOWED_ORIGIN_REGEX!r}) — these are no longer enforced by "
+    f"the middleware but logged here for reference."
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
