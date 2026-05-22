@@ -138,7 +138,11 @@ async def upload_chat(
       and media files are saved to data/media/<chat_id>/
     - If chat_id is provided, the existing chat is replaced and reprocessed
 
-    Returns the chat_id and processing status.
+    Returns the chat_id and processing status. The actual extraction and
+    pipeline run happen in a background task so this endpoint returns in
+    sub-second time regardless of upload size — otherwise proxies between
+    the browser and Render drop the connection for large uploads and the
+    browser sees "Failed to fetch" even though the upload succeeded.
     """
     filename = file.filename or "upload"
     ext = Path(filename).suffix.lower()
@@ -148,11 +152,6 @@ async def upload_chat(
             status_code=400,
             detail=f"Unsupported file type: {ext}. Only .txt and .zip files are accepted.",
         )
-
-    file_bytes = await file.read()
-
-    if len(file_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
     is_update = chat_id is not None
     chat_name = Path(filename).stem or "Untitled Chat"
@@ -200,26 +199,39 @@ async def upload_chat(
     db.add(pipeline_status)
     db.commit()
 
-    chat_text: str = ""
+    # Stream the upload directly to disk in 1 MB chunks so peak memory
+    # stays bounded regardless of upload size. Reading the whole body
+    # into a single bytes object was the cause of slow responses on
+    # large uploads — and on Render's free tier (512 MB) it could OOM.
+    upload_path = media_dir / f"_upload{ext}"
+    total_bytes = 0
+    with open(upload_path, "wb") as out:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            out.write(chunk)
+            total_bytes += len(chunk)
 
-    if ext == ".txt":
-        chat_text = _decode_chat_bytes(file_bytes)
-    elif ext == ".zip":
-        chat_text = _extract_zip_contents(file_bytes, media_dir)
-
-    if not chat_text:
-        raise HTTPException(status_code=400, detail="Could not extract text content from the uploaded file.")
+    if total_bytes == 0:
+        try:
+            upload_path.unlink()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
     background_tasks.add_task(
-        run_pipeline,
+        _process_upload_and_run_pipeline,
         chat_id=resolved_chat_id,
-        chat_text=chat_text,
+        upload_path=str(upload_path),
+        is_zip=(ext == ".zip"),
         media_dir=str(media_dir),
     )
 
     logger.info(
-        f"Upload complete for chat {resolved_chat_id} ({filename}). "
-        f"Pipeline started. Update mode={is_update}"
+        f"Upload received for chat {resolved_chat_id} ({filename}, "
+        f"{total_bytes} bytes). Extraction + pipeline scheduled. "
+        f"Update mode={is_update}"
     )
 
     return {
@@ -228,6 +240,86 @@ async def upload_chat(
         "status": "processing",
         "message": "Chat updated successfully. Reprocessing has started." if is_update else "File uploaded successfully. Processing has started.",
     }
+
+
+def _process_upload_and_run_pipeline(
+    chat_id: int,
+    upload_path: str,
+    is_zip: bool,
+    media_dir: str,
+) -> None:
+    """Background task: decode/extract the uploaded file, then run the pipeline.
+
+    Pulled out of the /upload request handler so the endpoint returns
+    immediately and proxies don't drop the connection. Failures here
+    update the chat's status to 'error' so the frontend's progress SSE
+    can surface them.
+    """
+    from app.models.db import Chat, PipelineStatus, SessionLocal
+
+    upload_p = Path(upload_path)
+    media_p = Path(media_dir)
+    chat_text: str = ""
+
+    try:
+        file_bytes = upload_p.read_bytes()
+
+        if is_zip:
+            chat_text = _extract_zip_contents(file_bytes, media_p)
+        else:
+            chat_text = _decode_chat_bytes(file_bytes)
+
+        # Free memory before the pipeline (embeddings etc.) starts.
+        del file_bytes
+    except Exception as e:
+        logger.error(f"[Upload] Chat {chat_id}: decode/extract failed: {e}")
+        db = SessionLocal()
+        try:
+            chat = db.query(Chat).get(chat_id)
+            if chat:
+                chat.status = "error"
+            status = db.query(PipelineStatus).filter(
+                PipelineStatus.chat_id == chat_id
+            ).first()
+            if status:
+                status.error = f"File processing failed: {e}"
+                status.updated_at = datetime.utcnow()
+            db.commit()
+        finally:
+            db.close()
+        # Best-effort cleanup of the temp upload file.
+        try:
+            upload_p.unlink()
+        except Exception:
+            pass
+        return
+
+    # Always remove the temp upload file once extraction succeeded — the
+    # extracted text is in chat_text and any media is already in media_dir.
+    try:
+        upload_p.unlink()
+    except Exception:
+        pass
+
+    if not chat_text:
+        logger.error(f"[Upload] Chat {chat_id}: no chat text after extraction")
+        db = SessionLocal()
+        try:
+            chat = db.query(Chat).get(chat_id)
+            if chat:
+                chat.status = "error"
+            status = db.query(PipelineStatus).filter(
+                PipelineStatus.chat_id == chat_id
+            ).first()
+            if status:
+                status.error = "Could not extract text content from the uploaded file."
+                status.updated_at = datetime.utcnow()
+            db.commit()
+        finally:
+            db.close()
+        return
+
+    run_pipeline(chat_id=chat_id, chat_text=chat_text, media_dir=str(media_p))
 
 
 @router.get("/{chat_id}/progress")
