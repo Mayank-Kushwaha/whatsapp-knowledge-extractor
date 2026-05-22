@@ -56,7 +56,7 @@ const sampleSenders: SenderInfo[] = SENDER_DEFS.map((s) => ({
   message_count: s.messages,
 }));
 
-const senderById = new Map(SENDER_DEFS.map((s) => [s.id, s.name] as const));
+const senderById = new Map<number, string>(SENDER_DEFS.map((s) => [s.id, s.name]));
 
 // ---------------------------------------------------------------------------
 // Type breakdown — matches the totals below
