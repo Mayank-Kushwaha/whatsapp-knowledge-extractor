@@ -1,7 +1,8 @@
-"""Semantic search using cosine similarity over sentence embeddings.
+"""Semantic search using cosine similarity over Gemini embeddings.
 
-Encodes a query with the same sentence-transformer model used for messages,
-then computes cosine similarity against all stored embeddings.
+Encodes a query with the same Gemini embedding model used for messages
+(text-embedding-004, truncated to 384 dimensions), then computes cosine
+similarity against all stored embeddings.
 """
 
 import json
@@ -12,7 +13,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from app.models.db import Message
-from app.services.embedder import _get_model, get_embedding_matrix
+from app.services.embedder import embed_texts, get_embedding_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -24,22 +25,24 @@ def semantic_search(
     top_k: int = 30,
 ) -> list[tuple[int, float]]:
     """Search messages by semantic similarity.
-    
+
     Args:
         db: Database session
         query: Search query text
         chat_id: Optional chat ID to restrict search (None = all chats)
         top_k: Maximum number of results to return
-        
+
     Returns:
         List of (message_id, similarity_score) tuples, sorted by score descending
     """
     if not query or len(query.strip()) < 2:
         return []
-    
-    # Load the model and encode the query
-    model = _get_model()
-    query_embedding = model.encode([query.strip()], convert_to_numpy=True)[0]
+
+    # Embed the query using the same Gemini model but with the query task type.
+    query_matrix = embed_texts([query.strip()], task_type="RETRIEVAL_QUERY")
+    if query_matrix.shape[0] == 0:
+        return []
+    query_embedding = query_matrix[0]
     
     # Load embeddings
     if chat_id:

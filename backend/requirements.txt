@@ -14,7 +14,6 @@ httpx==0.28.1
 beautifulsoup4==4.13.4
 
 # NLP / ML
-sentence-transformers==4.1.0
 scikit-learn==1.6.1
 hdbscan==0.8.40
 numpy==2.2.6

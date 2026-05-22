@@ -1,125 +1,249 @@
-"""Sentence embedding service using sentence-transformers.
+"""Sentence embedding service using Gemini's embedding API.
 
-Generates embeddings for all text messages in a chat using the
-all-MiniLM-L6-v2 model (384-dimensional vectors).
+Generates embeddings for messages and search queries via Google's
+gemini-embedding-001 model (768 native dimensions). Stored as JSON
+arrays in the messages.embedding column.
+
+Why Gemini instead of a local sentence-transformer model: on Render's
+free tier (512 MB RAM) the process OOM-killed during step 5 because
+sentence-transformers + PyTorch pulled the resident set above the
+ceiling. Gemini moves the compute off-process; we only hold the JSON
+result. Embedding pricing is negligible (~$0.025 per 1M characters).
 """
 
 import json
 import logging
+import os
+import re
+import time
 from typing import Optional
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
 
-from app.core.config import EMBEDDING_BATCH_SIZE, EMBEDDING_MODEL
+from app.core.config import (
+    EMBEDDING_BATCH_SIZE,
+    EMBEDDING_MODEL,
+    GEMINI_API_KEY,
+)
 from app.models.db import Message
 
 logger = logging.getLogger(__name__)
 
-# Singleton model instance (loaded once, cached)
-_model: Optional[SentenceTransformer] = None
+# Native output dimension of gemini-embedding-001. Stays constant across the
+# lifetime of a chat — clusterer/search assume one dimension per chat.
+EMBEDDING_DIMENSIONS = 768
+
+# Gemini's embed_content accepts up to 100 inputs per call. Cap the
+# configured batch size at that ceiling.
+_GEMINI_BATCH_LIMIT = 100
+
+# Free-tier Gemini allows 100 embedding requests per minute per project.
+# Paid tier raises this to 1500 RPM. Default to ~92 RPM (0.65s between
+# calls) to stay comfortably under the free limit. Override via
+# EMBEDDING_MIN_INTERVAL (seconds) on paid tier for faster throughput.
+_min_call_interval = float(os.getenv("EMBEDDING_MIN_INTERVAL", "0.65"))
+_last_call_time = 0.0
+
+# Max retries on 429 quota errors before giving up.
+_MAX_RETRIES = 4
 
 
-def _get_model() -> SentenceTransformer:
-    """Load the sentence-transformer model (singleton)."""
-    global _model
-    if _model is None:
-        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
-        _model = SentenceTransformer(EMBEDDING_MODEL)
-        logger.info(f"Model loaded: {EMBEDDING_MODEL}")
-    return _model
+def _configure_genai():
+    """Configure the google-generativeai SDK once with the API key."""
+    if not GEMINI_API_KEY:
+        raise ValueError(
+            "GEMINI_API_KEY is not set — required for Gemini embeddings."
+        )
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
+    return genai
+
+
+def _gemini_model_id() -> str:
+    """Resolve the Gemini embedding model id.
+
+    Honors EMBEDDING_MODEL from the env if it looks like a Gemini embedding
+    model name; otherwise falls back to gemini-embedding-001 (the current
+    production model — text-embedding-004 was retired on v1beta).
+    Legacy values like 'all-MiniLM-L6-v2' are ignored so old configs keep
+    working.
+    """
+    name = (EMBEDDING_MODEL or "").strip()
+    if name.startswith("models/"):
+        return name
+    if name.startswith("text-embedding") or name.startswith("gemini-embedding") or name == "embedding-001":
+        return f"models/{name}"
+    return "models/gemini-embedding-001"
+
+
+def embed_texts(
+    texts: list[str],
+    task_type: str = "RETRIEVAL_DOCUMENT",
+) -> np.ndarray:
+    """Embed a list of strings via Gemini.
+
+    Returns a numpy matrix of shape (len(texts), EMBEDDING_DIMENSIONS).
+    Caller is responsible for filtering empty/short strings beforehand.
+    """
+    global _last_call_time
+
+    if not texts:
+        return np.zeros((0, EMBEDDING_DIMENSIONS), dtype=np.float32)
+
+    genai = _configure_genai()
+    model_id = _gemini_model_id()
+    batch = min(EMBEDDING_BATCH_SIZE or _GEMINI_BATCH_LIMIT, _GEMINI_BATCH_LIMIT)
+
+    out: list[list[float]] = []
+
+    for start in range(0, len(texts), batch):
+        chunk = texts[start:start + batch]
+
+        result = _embed_with_retry(genai, model_id, chunk, task_type)
+
+        embedding_field = result.get("embedding") if isinstance(result, dict) else None
+        if embedding_field is None:
+            raise RuntimeError(f"Gemini returned no embedding field: {result!r}")
+
+        # Single-input calls return a flat list, batch calls return a list of lists.
+        if chunk and isinstance(embedding_field[0], (int, float)):
+            out.append(list(embedding_field))
+        else:
+            out.extend(list(v) for v in embedding_field)
+
+    return np.asarray(out, dtype=np.float32)
+
+
+def _embed_with_retry(genai, model_id: str, chunk: list[str], task_type: str) -> dict:
+    """Call genai.embed_content with rate-limit throttling and 429 retry.
+
+    Pre-throttles so consecutive calls are at least _min_call_interval apart
+    (default 0.65s ≈ 92 RPM — under Gemini free tier's 100 RPM limit).
+    On 429 quota errors, parses Google's `retry_delay { seconds: N }` from
+    the exception and sleeps that long before retrying. Retries up to
+    _MAX_RETRIES times, then re-raises.
+    """
+    global _last_call_time
+
+    for attempt in range(_MAX_RETRIES + 1):
+        elapsed = time.time() - _last_call_time
+        if elapsed < _min_call_interval:
+            time.sleep(_min_call_interval - elapsed)
+
+        try:
+            result = genai.embed_content(
+                model=model_id,
+                content=chunk,
+                task_type=task_type,
+            )
+            _last_call_time = time.time()
+            return result
+        except Exception as e:
+            _last_call_time = time.time()
+            err_text = str(e)
+            is_quota = (
+                "429" in err_text
+                or "quota" in err_text.lower()
+                or "exceeded" in err_text.lower()
+                or "rate limit" in err_text.lower()
+            )
+            if not is_quota or attempt == _MAX_RETRIES:
+                raise
+
+            # Parse Google's suggested retry_delay; fall back to 60s.
+            retry_seconds = 60
+            match = re.search(r"retry_delay\s*\{\s*seconds:\s*(\d+)", err_text)
+            if match:
+                retry_seconds = int(match.group(1)) + 1  # +1s safety buffer
+
+            logger.warning(
+                f"[Embedder] Gemini quota hit (attempt {attempt + 1}/{_MAX_RETRIES + 1}); "
+                f"sleeping {retry_seconds}s before retry."
+            )
+            time.sleep(retry_seconds)
+
+    # Unreachable — the loop either returns or raises.
+    raise RuntimeError("Gemini embedding retry loop exited unexpectedly")
 
 
 def embed_messages(db: Session, chat_id: int) -> int:
     """Generate and store embeddings for all text messages in a chat.
-    
-    Args:
-        db: Database session
-        chat_id: Chat ID to process
-        
-    Returns:
-        Number of messages embedded
+
+    Returns the number of messages embedded.
     """
     logger.info(f"[Embedder] Chat {chat_id}: Starting embedding generation")
-    
-    # Load model
-    model = _get_model()
-    
-    # Query all messages that need embeddings (skip deleted, unknown_media, and already embedded)
+
     messages = db.query(Message).filter(
         Message.chat_id == chat_id,
         Message.type.notin_(["deleted", "unknown_media"]),
         Message.embedding.is_(None),
     ).all()
-    
+
     if not messages:
         logger.info(f"[Embedder] Chat {chat_id}: No messages to embed")
         return 0
-    
-    logger.info(f"[Embedder] Chat {chat_id}: Found {len(messages)} messages to embed")
-    
-    # Filter out messages with empty/very short content
+
+    logger.info(f"[Embedder] Chat {chat_id}: Found {len(messages)} candidate messages")
+
     valid_messages = []
+    valid_texts = []
     for msg in messages:
         content = (msg.content or "").strip()
-        if len(content) >= 3:  # Minimum 3 characters
+        if len(content) >= 3:
             valid_messages.append(msg)
-    
+            valid_texts.append(content)
+
     if not valid_messages:
         logger.info(f"[Embedder] Chat {chat_id}: No valid messages (all too short)")
         return 0
-    
-    logger.info(f"[Embedder] Chat {chat_id}: {len(valid_messages)} valid messages")
-    
-    # Batch encode
+
+    logger.info(f"[Embedder] Chat {chat_id}: Embedding {len(valid_messages)} messages via Gemini")
+
     embedded_count = 0
-    batch_size = EMBEDDING_BATCH_SIZE
-    
-    for i in range(0, len(valid_messages), batch_size):
-        batch = valid_messages[i:i + batch_size]
-        texts = [msg.content.strip() for msg in batch]
-        
-        # Generate embeddings
-        embeddings = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
-        
-        # Store as JSON arrays
-        for msg, embedding in zip(batch, embeddings):
+    batch = min(EMBEDDING_BATCH_SIZE or _GEMINI_BATCH_LIMIT, _GEMINI_BATCH_LIMIT)
+
+    for i in range(0, len(valid_messages), batch):
+        msg_batch = valid_messages[i:i + batch]
+        text_batch = valid_texts[i:i + batch]
+
+        try:
+            embeddings = embed_texts(text_batch, task_type="RETRIEVAL_DOCUMENT")
+        except Exception as e:
+            logger.error(f"[Embedder] Chat {chat_id}: Batch {i // batch} failed: {e}")
+            raise
+
+        for msg, embedding in zip(msg_batch, embeddings):
             msg.embedding = json.dumps(embedding.tolist())
             embedded_count += 1
-        
+
         db.commit()
-        
-        if (i // batch_size + 1) % 10 == 0:
-            logger.info(f"[Embedder] Chat {chat_id}: Embedded {embedded_count}/{len(valid_messages)} messages")
-    
-    logger.info(f"[Embedder] Chat {chat_id}: ✅ Embedded {embedded_count} messages")
+
+        if (i // batch + 1) % 10 == 0:
+            logger.info(
+                f"[Embedder] Chat {chat_id}: Embedded {embedded_count}/{len(valid_messages)} messages"
+            )
+
+    logger.info(f"[Embedder] Chat {chat_id}: Embedded {embedded_count} messages")
     return embedded_count
 
 
 def get_embedding_matrix(db: Session, chat_id: int) -> tuple[np.ndarray, list[int]]:
     """Load all embeddings for a chat as a numpy matrix.
-    
-    Args:
-        db: Database session
-        chat_id: Chat ID
-        
-    Returns:
-        Tuple of (embedding_matrix, message_ids)
-        embedding_matrix: shape (n_messages, 384)
-        message_ids: list of message IDs corresponding to rows
+
+    Returns (embedding_matrix, message_ids).
     """
     messages = db.query(Message).filter(
         Message.chat_id == chat_id,
         Message.embedding.isnot(None),
     ).all()
-    
+
     if not messages:
         return np.array([]), []
-    
+
     embeddings = []
     message_ids = []
-    
+
     for msg in messages:
         try:
             embedding = np.array(json.loads(msg.embedding))
@@ -128,9 +252,9 @@ def get_embedding_matrix(db: Session, chat_id: int) -> tuple[np.ndarray, list[in
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(f"[Embedder] Failed to parse embedding for message {msg.id}: {e}")
             continue
-    
+
     if not embeddings:
         return np.array([]), []
-    
+
     matrix = np.vstack(embeddings)
     return matrix, message_ids

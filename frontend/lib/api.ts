@@ -17,7 +17,28 @@
  *      Vercel's 4.5 MB proxy limit. Without this set, uploads of any size will
  *      be routed through the Vercel proxy and fail for files > 4.5 MB.
  * All other API calls still use relative URLs through the rewrite proxy.
+ *
+ * Sample chat: any function that takes a chatId short-circuits to canned
+ * data from ./sample-chat when the id is SAMPLE_CHAT_ID, so the demo chat
+ * works in production without touching the backend.
  */
+
+import {
+  SAMPLE_CHAT_ID,
+  getSampleChat,
+  getSampleChatClusters,
+  getSampleChatGraph,
+  getSampleChatImportant,
+  getSampleChatLinkDomains,
+  getSampleChatLinks,
+  getSampleChatMedia,
+  getSampleChatMessages,
+  getSampleChats,
+  getSampleClusterMessages,
+  sampleDeleteChat,
+  sampleSearchChat,
+  sampleToggleImportance,
+} from "./sample-chat";
 
 // Empty string = use relative URLs (goes through Next.js rewrite proxy).
 // Falls back to localhost only when running outside of Next.js (e.g. tests).
@@ -242,10 +263,19 @@ export interface ProgressEvent {
 // ---------------------------------------------------------------------------
 
 export async function getChats(): Promise<Chat[]> {
-  return apiFetch("/api/chats");
+  // Always prepend the sample chat so the sidebar is populated even on a
+  // fresh backend with no uploads yet — and even if the backend is down.
+  const sample = getSampleChats();
+  try {
+    const real = await apiFetch<Chat[]>("/api/chats");
+    return [...sample, ...real.filter((c) => c.id !== SAMPLE_CHAT_ID)];
+  } catch {
+    return sample;
+  }
 }
 
 export async function getChat(id: number): Promise<ChatDetail> {
+  if (id === SAMPLE_CHAT_ID) return getSampleChat();
   return apiFetch(`/api/chats/${id}`);
 }
 
@@ -259,6 +289,7 @@ export async function getChatMessages(
     is_important?: boolean;
   }
 ): Promise<PaginatedResponse<Message>> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatMessages(params);
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.per_page) searchParams.set("per_page", String(params.per_page));
@@ -286,6 +317,7 @@ export async function getChatLinks(
     sort?: string;
   }
 ): Promise<PaginatedLinks> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatLinks(params);
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.page_size) searchParams.set("page_size", String(params.page_size));
@@ -300,6 +332,7 @@ export async function getChatLinks(
 }
 
 export async function getChatLinkDomains(chatId: number): Promise<DomainBreakdown[]> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatLinkDomains();
   return apiFetch(`/api/chats/${chatId}/links/domains`);
 }
 
@@ -317,6 +350,7 @@ export async function getChatImportant(
     sort?: string;
   }
 ): Promise<PaginatedImportant> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatImportant(params);
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.page_size) searchParams.set("page_size", String(params.page_size));
@@ -331,6 +365,7 @@ export async function toggleImportance(
   chatId: number,
   messageId: number
 ): Promise<{ message_id: number; is_important: boolean; action: string }> {
+  if (chatId === SAMPLE_CHAT_ID) return sampleToggleImportance(messageId);
   return apiFetch(`/api/chats/${chatId}/messages/${messageId}/flag`, {
     method: "POST",
   });
@@ -352,6 +387,7 @@ export async function getChatMedia(
     sort?: string;
   }
 ): Promise<PaginatedMedia> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatMedia(params);
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.page_size) searchParams.set("page_size", String(params.page_size));
@@ -378,6 +414,10 @@ export async function uploadChat(
   file: File,
   options?: { chatId?: number }
 ): Promise<{ chat_id: number; status: string; message?: string; name?: string }> {
+  if (options?.chatId === SAMPLE_CHAT_ID) {
+    throw new Error("The demo chat can't be updated — upload a real chat to manage your own.");
+  }
+
   const formData = new FormData();
   formData.append("file", file);
   if (options?.chatId) {
@@ -408,6 +448,7 @@ export function createProgressStream(chatId: number): EventSource {
 export async function deleteChat(
   chatId: number
 ): Promise<{ success: boolean; chat_id: number; message: string }> {
+  if (chatId === SAMPLE_CHAT_ID) sampleDeleteChat();
   return apiFetch(`/api/chats/${chatId}`, {
     method: "DELETE",
   });
@@ -539,6 +580,7 @@ export interface PaginatedClusterMessages {
 // ---------------------------------------------------------------------------
 
 export async function getChatClusters(chatId: number): Promise<ClusterItem[]> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatClusters();
   return apiFetch(`/api/chats/${chatId}/clusters`);
 }
 
@@ -550,6 +592,7 @@ export async function getClusterMessages(
     page_size?: number;
   }
 ): Promise<PaginatedClusterMessages> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleClusterMessages(clusterId, params);
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.page_size) searchParams.set("page_size", String(params.page_size));
@@ -606,6 +649,7 @@ export async function searchChat(
     limit?: number;
   }
 ): Promise<SearchResponse> {
+  if (chatId === SAMPLE_CHAT_ID) return sampleSearchChat(params.q);
   const searchParams = new URLSearchParams();
   searchParams.set("q", params.q);
   if (params.mode) searchParams.set("mode", params.mode);
@@ -692,6 +736,7 @@ export async function getChatGraph(
     filter_cluster?: number;
   }
 ): Promise<GraphData> {
+  if (chatId === SAMPLE_CHAT_ID) return getSampleChatGraph();
   const searchParams = new URLSearchParams();
   if (params?.max_nodes) searchParams.set("max_nodes", String(params.max_nodes));
   if (params?.filter_type) searchParams.set("filter_type", params.filter_type);
