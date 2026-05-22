@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import ALLOWED_ORIGINS, MEDIA_DIR
+from app.core.config import ALLOWED_ORIGINS, ALLOWED_ORIGIN_REGEX, MEDIA_DIR
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,7 @@ app.include_router(export_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

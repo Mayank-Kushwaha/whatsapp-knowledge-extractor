@@ -38,6 +38,14 @@ for _origin in _local_defaults:
     if _origin not in ALLOWED_ORIGINS:
         ALLOWED_ORIGINS.append(_origin)
 
+# Regex for dynamic origins like Vercel preview deploys (each PR gets its own
+# unique *.vercel.app subdomain). Set ALLOWED_ORIGIN_REGEX to override; default
+# matches any vercel.app subdomain so preview deploys don't break CORS.
+ALLOWED_ORIGIN_REGEX = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"https://.*\.vercel\.app",
+)
+
 # LLM
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")  # "gemini" or "ollama"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
