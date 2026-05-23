@@ -1,40 +1,57 @@
 # 📱 WhatsApp Knowledge Extractor
 
-Transform your WhatsApp chat exports into an organized, searchable, visual knowledge base — fully local, no cloud, no subscriptions.
+Turn your WhatsApp chat exports into a searchable, classified, visually-graphed knowledge base. Sign in with Google, drag-and-drop a chat export, and get a topic-clustered dashboard, a knowledge graph, and multi-mode search across every link, image, video, PDF, and important note you ever sent.
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Stack](https://img.shields.io/badge/stack-Next.js%2016%20%2B%20FastAPI%20%2B%20SQLite-green)
-![AI](https://img.shields.io/badge/AI-Gemini%202.0%20Flash%20(free)-purple)
-![Local](https://img.shields.io/badge/storage-100%25%20local-orange)
+![Auth](https://img.shields.io/badge/auth-Google%20OAuth-red)
+![AI](https://img.shields.io/badge/embeddings-Gemini%20%2F%20Local-purple)
+![Deploy](https://img.shields.io/badge/deploy-Vercel%20%2B%20Render-blue)
 
 ---
 
 ## What Is This?
 
-WhatsApp Knowledge Extractor is a web application that turns your WhatsApp chat exports into a rich, interactive knowledge base. You upload a `.zip` or `.txt` export file, and the app automatically parses every message, classifies content by type, clusters messages into semantic topics using local NLP, tags important messages, and presents everything in a searchable dashboard with an interactive knowledge graph.
+WhatsApp Knowledge Extractor is a full-stack web app that ingests `.zip` or `.txt` WhatsApp exports and turns them into a personal, multi-user knowledge base. Every message is parsed, classified by type, enriched (OG metadata for links, text extraction for PDFs), embedded with a sentence-embedding model, clustered into semantic topics, labeled with Gemini 2.0 Flash, and indexed in SQLite FTS5. The frontend surfaces it as a dashboard with per-type views, an interactive Cytoscape knowledge graph, cross-chat search, and Markdown/CSV/JSON export.
 
-**The core problem it solves**: Millions of people use WhatsApp as an informal notes app — sharing Google Drive links, YouTube videos, PDFs, images, addresses, and important reminders. Retrieving any of it later means scrolling through thousands of messages. This app turns that chaos into an organized, searchable, interlinked knowledge graph.
+**The core problem it solves**: WhatsApp is the world's largest informal notes app. People paste Drive links, YouTube videos, PDFs, addresses, and reminders into chats and never find them again. This app turns that chaos into something you can actually search and browse.
 
 ### Who Is It For?
 
-- Individuals who use "Saved Messages" or personal chats as a notes app
-- Small teams or families coordinating via WhatsApp groups
-- Researchers, students, and professionals who share resources over WhatsApp
+- People who use "Saved Messages" or personal chats as a notes app
+- Small teams or families coordinating shared resources via WhatsApp
+- Researchers, students, and professionals who share materials in groups
 - Anyone in India, Southeast Asia, Latin America, or the Middle East where WhatsApp is the primary communication layer
+
+---
+
+## What's New
+
+- **Google OAuth sign-in (NextAuth v5 / Auth.js v5)** — every chat is scoped to the signed-in user's Google `sub`. No more shared inbox; multiple people can use the same deployment without seeing each other's data.
+- **Pluggable embedding provider** — choose between hosted **Gemini embeddings (`gemini-embedding-001`, 768-dim)** for production and **local sentence-transformers (`all-MiniLM-L6-v2`, 384-dim)** for fully-offline development.
+- **Production deployment recipe** — Vercel for the frontend, Render for the backend with a persistent disk for SQLite + media, environment-driven CORS, and Vercel preview-deploy support out of the box.
+- **Token-rotated sessions** — Google ID tokens are refreshed automatically in the NextAuth JWT callback; users stay signed in indefinitely.
 
 ---
 
 ## Features
 
+### Authentication
+- Sign in with Google (NextAuth v5 Google provider)
+- The frontend forwards the Google ID token to the backend as `Authorization: Bearer <id_token>`
+- Backend verifies the token's signature against Google's JWKS and checks the `aud` claim against `GOOGLE_CLIENT_ID`
+- Every chat is owned by a single user (`chats.owner_id = <Google sub>`); the API returns 404 (not 403) on cross-user access so nothing leaks about other users' data
+- Refresh tokens are stored in the session JWT and rotated automatically when the ID token is within 60s of expiry
+
 ### Upload & Ingestion
 - Drag-and-drop upload of WhatsApp `.zip` export (with media) or standalone `.txt` file
-- Real-time 10-step progress bar powered by Server-Sent Events (SSE)
+- Uploads bypass Vercel's 4.5 MB proxy body limit by POSTing directly to the backend at `NEXT_PUBLIC_API_URL`
+- Real-time 10-step progress bar powered by Server-Sent Events
 - Handles chats with 50,000+ messages
-- Extracts and stores all media files (images, videos, PDFs, audio, documents) locally
-- Persists everything to a local SQLite database for future sessions
+- Extracts and stores all media files locally (images, videos, PDFs, audio, documents)
 
 ### Auto-Classification
-Every message is automatically classified into one of these types:
+Every message is classified into one of:
 
 | Type | How It's Detected |
 |------|------------------|
@@ -50,221 +67,238 @@ Every message is automatically classified into one of these types:
 | Important | Keyword/emoji triggers (see below) |
 
 ### Importance Tagging
-Messages are auto-flagged as important when they contain:
 - **Keywords**: "important", "urgent", "remember", "don't forget", "reminder", "note:", "save this", "critical", "action item", "todo", "task:"
 - **Emojis**: ❗ ‼️ ⚠️ 📌 📍 🔴 🔖 ✅ ☑️ 🚨
-- **Manual flagging**: You can flag/unflag any message inside the app
+- **Manual flagging** — flag/unflag any message inside the app
 
-### Topic Clustering (NLP)
-- Generates sentence embeddings for every text message using `sentence-transformers/all-MiniLM-L6-v2` — runs locally on CPU, no GPU needed, no API calls
-- Clusters messages into semantic topics using HDBSCAN (with K-Means fallback)
-- Auto-labels each cluster with a 2–4 word topic name using Gemini 2.0 Flash (free)
-- Browse all discovered topics in the Topics view
+### Embeddings (Two Providers, Switch via `EMBEDDING_PROVIDER`)
+
+| Mode | Model | Dimensions | Best For |
+|------|-------|------------|----------|
+| `gemini` (default) | `gemini-embedding-001` | 768 | Production. Hosted, fast, no local RAM cost. Free tier: 100 req/min, 1,000 req/day. |
+| `local` | `sentence-transformers/all-MiniLM-L6-v2` | 384 | Dev / offline. Runs on CPU, no quotas. Needs ~500 MB RAM (PyTorch). OOMs on Render free tier. |
+
+The embedder auto-throttles Gemini calls (~92 RPM by default) and parses Google's `retry_delay` header on 429 errors to back off correctly. Embedding dimensions differ per provider, so switching providers requires re-uploading existing chats.
+
+### Topic Clustering
+- HDBSCAN density-based clustering (with K-Means fallback if HDBSCAN fails to install)
+- Each cluster gets a 2–4 word label + 1-sentence summary from Gemini 2.0 Flash (free tier)
+- Browse all topics in the Topics view
 
 ### Multi-Mode Search
-- **Keyword search**: SQLite FTS5 full-text search — zero extra dependencies
-- **Semantic search**: Cosine similarity over local embeddings using numpy
+- **Keyword search**: SQLite FTS5 full-text search
+- **Semantic search**: Cosine similarity over stored embeddings (numpy)
 - **Filter search**: By sender, date range, type, cluster, importance
 - **Shorthand filters**: `from:Mom`, `type:link`, `is:important`, `domain:youtube.com`, `before:2024-01`, `after:2023-06`
-- **Cross-chat search**: Search across all uploaded chats simultaneously
-- Results show surrounding context; matched terms are highlighted
+- **Cross-chat search**: Across all of your uploaded chats simultaneously
 
 ### Analytics Dashboard
 - Summary stat cards: total messages, unique senders, date range, media items
 - Per-type panels with counts and quick-access lists
 - Activity heatmap: message frequency by day of week / hour of day
-- Top senders breakdown
-- Link domain breakdown (YouTube, Drive, Amazon, etc.)
+- Top senders breakdown; link-domain breakdown
 
 ### Knowledge Graph
-- Interactive node-link graph built with Cytoscape.js
+- Interactive Cytoscape.js node-link graph
 - Nodes represent messages, senders, topics, and link domains
-- Node color encodes type; node size encodes importance/connections
-- Click any node to expand its connections and see a detail panel
-- Filter by type, sender, or cluster
-- Zoom, pan, and drag controls
+- Node color encodes type; node size encodes importance / connections
+- Click any node to expand connections + see a detail panel
+- Filter by type, sender, or cluster; zoom, pan, drag
 
 ### Per-Type Detail Views
-- **Links**: OG preview cards with title, description, image; grouped by domain
-- **Images**: Masonry grid with click-to-expand lightbox; download support
+- **Links**: OG preview cards (title, description, image); grouped by domain
+- **Images**: Masonry grid with click-to-expand lightbox; download
 - **Videos**: YouTube embed previews; HTML5 playback for local videos
-- **Documents**: File list with PDF text preview (first 500 chars); download button
+- **Documents**: PDF text preview (first 500 chars); download
 - **Important**: Chronological feed grouped by trigger type; export to Markdown
 
 ### Export
-- Export any filtered view as `.md`, `.csv`, or `.json`
-- Export important messages as a Markdown file
-- Export topic cluster as an AI-generated summary
+- `.md`, `.csv`, or `.json` for any filtered view
+- Markdown export of important messages
+- AI-generated summary per topic cluster
 
 ---
 
 ## Prerequisites
 
-Before you start, make sure you have these installed:
+| Requirement | Version | Check |
+|-------------|---------|-------|
+| Python | 3.11+ | `python --version` |
+| Node.js | 18+ | `node --version` |
+| npm | 8+ | `npm --version` |
+| Git | recent | `git --version` |
 
-| Requirement | Version | Check Command |
-|-------------|---------|---------------|
-| Python | 3.11 or higher | `python --version` |
-| Node.js | 18 or higher | `node --version` |
-| npm | 8 or higher | `npm --version` |
-| Git | Any recent version | `git --version` |
+You will also need:
 
-You also need a **free Gemini API key** for topic labeling. Get one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — no credit card required, no billing setup. If you prefer to run fully offline, you can use Ollama instead (see Environment Variables section).
+- **A Google Cloud OAuth 2.0 Client ID + Secret** (for sign-in). Create one at [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) → Credentials → Create Credentials → OAuth client ID → Web application. Add `http://localhost:3000/api/auth/callback/google` (and your production URL) as authorized redirect URIs.
+- **A free Gemini API key** for cluster labeling and (in `gemini` mode) embeddings. Get one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — no credit card required.
+
+If you prefer to run fully offline, you can swap the LLM for Ollama and the embedder for the local provider (see Environment Variables).
 
 ---
 
 ## How to Export Your WhatsApp Chat
 
 ### Android
-1. Open WhatsApp → open the chat you want to export
-2. Tap the three-dot menu (⋮) → **More** → **Export Chat**
-3. Choose **Include Media** (for full export with images/videos) or **Without Media** (text only)
-4. Save or share the `.zip` file to your computer
+1. Open WhatsApp → open the chat
+2. Three-dot menu (⋮) → **More** → **Export Chat**
+3. Choose **Include Media** (full export) or **Without Media** (text only)
+4. Save the `.zip` file to your computer
 
 ### iOS
 1. Open WhatsApp → open the chat
 2. Tap the contact/group name at the top → **Export Chat**
 3. Choose **Attach Media** or **Without Media**
-4. AirDrop, email, or save the `.zip` file to your computer
-
-The export produces a `.txt` file (message log) and optionally a `.zip` containing media files. Both formats are supported by this app.
+4. AirDrop / email / save the `.zip` file
 
 ---
 
 ## Setup & Installation
 
-### Step 1 — Clone the repository
+### 1. Clone
 
 ```bash
 git clone <your-repo-url>
 cd whatsapp-knowledge-extractor
 ```
 
-### Step 2 — Set up the backend
+### 2. Backend
 
 ```bash
 cd backend
 
-# Create a Python virtual environment
+# Virtual environment
 python -m venv venv
 
-# Activate it (Windows PowerShell)
+# Activate (Windows PowerShell)
 .\venv\Scripts\Activate.ps1
+# or (macOS/Linux)
+source venv/bin/activate
 
-# Install all Python dependencies
+# Install
 pip install -r requirements.txt
 ```
 
-### Step 3 — Configure environment variables
+### 3. Backend Environment Variables
 
-Create a `.env` file inside the `backend/` directory:
+Copy `.env.example` to `backend/.env`:
 
-```bash
-# backend/.env
+```env
+# === Authentication ===
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 
-# AI — free Gemini API key (no credit card needed)
-GEMINI_API_KEY=your_key_here
-
-# LLM provider: "gemini" (default) or "ollama" (fully local, no internet)
-LLM_PROVIDER=gemini
-
-# Ollama settings — only needed if LLM_PROVIDER=ollama
+# === LLM (cluster labeling) ===
+GEMINI_API_KEY=your-gemini-api-key
+LLM_PROVIDER=gemini                  # "gemini" or "ollama"
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3
 
-# Local data paths (defaults work out of the box)
+# === Embeddings ===
+EMBEDDING_PROVIDER=gemini            # "gemini" (production) or "local" (dev)
+EMBEDDING_MODEL=gemini-embedding-001 # or all-MiniLM-L6-v2 for local
+EMBEDDING_BATCH_SIZE=64
+
+# === Paths (defaults are fine for local) ===
 DATA_DIR=./data
 MEDIA_DIR=./data/media
 DB_PATH=./data/knowledge.db
 
-# Server ports
+# === Server ===
 BACKEND_PORT=8000
 FRONTEND_PORT=3000
+
+# === CORS — production ===
+# Comma-separated list. Local dev is auto-allowed.
+FRONTEND_ORIGIN=
 ```
 
-### Step 4 — Initialize the database
+### 4. Database
 
 ```bash
-# Still inside backend/ with venv activated
+# inside backend/ with venv active
 alembic upgrade head
 ```
 
-This creates `data/knowledge.db` with all the required tables.
+This creates `data/knowledge.db` with all tables (including `chats.owner_id` for Google-scoped ownership).
 
-### Step 5 — Set up the frontend
+### 5. Frontend
 
 ```bash
 cd ../frontend
 npm install
 ```
 
+Create `frontend/.env.local`:
+
+```env
+# NextAuth v5 / Auth.js
+AUTH_SECRET=<run: openssl rand -base64 32>
+AUTH_URL=http://localhost:3000
+AUTH_TRUST_HOST=true
+
+# Google OAuth — same client as the backend
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+
+# Backend URL (uploads bypass the Vercel/Next rewrite proxy and POST here directly)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
 ---
 
-## Running the Project
+## Running Locally
 
-You need two terminals running simultaneously — one for the backend, one for the frontend.
+You need two terminals.
 
-### Terminal 1 — Backend (FastAPI)
+### Terminal 1 — Backend
 
 ```bash
-cd whatsapp-knowledge-extractor/backend
-.\venv\Scripts\Activate.ps1
+cd backend
+.\venv\Scripts\Activate.ps1   # Windows
+# source venv/bin/activate    # macOS/Linux
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`. You can explore the auto-generated API docs at `http://localhost:8000/docs`.
-
-### Terminal 2 — Frontend (Next.js)
-
-```bash
-cd whatsapp-knowledge-extractor/frontend
-npm run dev
-```
-
-The app will be available at `http://localhost:3000`.
-
-### Verify Everything Is Working
-
-Open `http://localhost:3000` — you should see the landing page. To confirm the backend is healthy:
+API at `http://localhost:8000`. Docs at `http://localhost:8000/docs`. Health check:
 
 ```bash
 curl http://localhost:8000/health
-# Expected: {"status": "ok"}
+# {"status":"ok"}
 ```
 
----
+### Terminal 2 — Frontend
 
-## Using the App — Step by Step
+```bash
+cd frontend
+npm run dev
+```
 
-1. **Open** `http://localhost:3000` — you'll see the landing page
-2. **Click "Get Started"** → navigates to the Upload page
-3. **Drag and drop** your WhatsApp `.zip` or `.txt` export onto the upload zone
-4. **Watch the progress bar** — 10 pipeline steps run automatically (parse → classify → embed → cluster → label → index)
-5. **Explore the dashboard** — stat cards, charts, and per-type panels load automatically
-6. **Browse by type** — click any panel to open the dedicated view (Links, Images, Videos, Docs, Important)
-7. **Explore topics** — the Topics view shows all discovered semantic clusters
-8. **Search** — use the search bar with keyword, semantic, or shorthand filter queries
-9. **View the graph** — the Knowledge Graph shows all relationships visually
-10. **Export** — download any view as Markdown, CSV, or JSON
+App at `http://localhost:3000`.
+
+### First-Run Flow
+1. Visit `http://localhost:3000` → sign in with Google
+2. Upload your `.zip`/`.txt`
+3. Watch the 10-step SSE progress bar
+4. Land on the dashboard; explore Topics, Graph, Search, Important, etc.
 
 ---
 
 ## Processing Pipeline
 
-When you upload a chat, these 10 steps run automatically as a background task. Progress streams to the UI in real time via SSE.
+When you upload, these 10 steps run as a FastAPI BackgroundTask. Progress streams to the UI via SSE.
 
-| Step | Name | What Happens |
-|------|------|-------------|
-| 1 | Parse | Extracts messages, senders, timestamps from the `.txt`; saves media files to `data/media/` |
-| 2 | Classify | Assigns a type to every message using regex and file extension detection |
-| 3 | Enrich Links | Fetches Open Graph metadata (title, description, image) for all URLs |
-| 4 | Extract PDFs | Runs PyMuPDF on PDF files to extract the first 2000 characters of text |
-| 5 | Embed | Generates 384-dimensional sentence embeddings for all text messages (local CPU) |
-| 6 | Cluster | Groups messages into semantic topics using HDBSCAN or K-Means |
-| 7 | Label Clusters | Calls Gemini 2.0 Flash to generate a 2–4 word topic label and 1-sentence summary per cluster |
-| 8 | Tag Importance | Scans all messages for keyword and emoji triggers; creates importance flags |
-| 9 | Build FTS Index | Bulk-inserts all message content into the SQLite FTS5 virtual table |
-| 10 | Mark Complete | Sets chat status to "ready"; SSE delivers the completion event; UI redirects to dashboard |
+| Step | Name | Source |
+|------|------|--------|
+| 1 | Parse messages | `services/parser.py` |
+| 2 | Classify content | `services/classifier.py` |
+| 3 | Enrich links (OG metadata) | `services/og_fetcher.py` |
+| 4 | Extract PDF text | `services/pdf_extractor.py` |
+| 5 | Generate embeddings (Gemini or local) | `services/embedder.py` |
+| 6 | Cluster topics (HDBSCAN / K-Means) | `services/clusterer.py` |
+| 7 | Label clusters (Gemini 2.0 Flash) | `services/llm.py` |
+| 8 | Tag importance | `services/tagger.py` |
+| 9 | Build FTS5 search index | `services/fts_builder.py` |
+| 10 | Mark complete; emit SSE done event | `tasks/pipeline.py` |
 
 ---
 
@@ -272,20 +306,22 @@ When you upload a chat, these 10 steps run automatically as a background task. P
 
 | Route | Page |
 |-------|------|
-| `/` | Landing page |
+| `/` | Landing page (sign-in CTA) |
+| `/api/auth/[...nextauth]` | NextAuth handler (Google sign-in callback) |
+| `/docs` | In-app docs |
 | `/app/upload` | Upload chat export |
-| `/app/chats` | All uploaded chats list |
-| `/app/chats/[id]` | Chat overview dashboard |
-| `/app/chats/[id]/graph` | Interactive knowledge graph |
-| `/app/chats/[id]/links` | Links detail view with OG cards |
-| `/app/chats/[id]/images` | Images masonry gallery |
-| `/app/chats/[id]/videos` | Videos list with playback |
-| `/app/chats/[id]/docs` | PDFs and documents view |
-| `/app/chats/[id]/important` | Important messages feed |
-| `/app/chats/[id]/topics` | Topic clusters view |
-| `/app/chats/[id]/search` | Search within a single chat |
+| `/app/chats` | Your uploaded chats |
+| `/app/chats/[id]` | Chat dashboard |
+| `/app/chats/[id]/graph` | Knowledge graph |
+| `/app/chats/[id]/links` | Links view with OG cards |
+| `/app/chats/[id]/images` | Image gallery + lightbox |
+| `/app/chats/[id]/videos` | Videos + YouTube embeds |
+| `/app/chats/[id]/docs` | PDFs and documents |
+| `/app/chats/[id]/important` | Important messages |
+| `/app/chats/[id]/topics` | Topic clusters |
+| `/app/chats/[id]/search` | Per-chat search |
 | `/app/search` | Cross-chat global search |
-| `/app/settings` | App settings (LLM provider, API key) |
+| `/app/settings` | LLM / embedding provider, API key |
 
 ---
 
@@ -293,180 +329,204 @@ When you upload a chat, these 10 steps run automatically as a background task. P
 
 ```
 whatsapp-knowledge-extractor/
-├── frontend/                          # Next.js 16 app (React 19, TypeScript)
+├── frontend/                          # Next.js 16, React 19, TypeScript, Tailwind v4
 │   ├── app/
-│   │   ├── layout.tsx                 # Root HTML layout, font loading
-│   │   ├── page.tsx                   # Landing page (/)
-│   │   ├── globals.css                # Global styles, CSS custom properties
+│   │   ├── layout.tsx                 # Root layout (wraps Providers / SessionProvider)
+│   │   ├── page.tsx                   # Landing page with Google sign-in
+│   │   ├── providers.tsx              # NextAuth SessionProvider
+│   │   ├── globals.css
+│   │   ├── api/auth/[...nextauth]/route.ts   # NextAuth v5 handlers
+│   │   ├── docs/page.tsx              # In-app documentation
 │   │   └── app/                       # Authenticated app shell
-│   │       ├── layout.tsx             # App layout: sidebar + top bar
-│   │       ├── upload/page.tsx        # Upload page with drag-and-drop + SSE progress
-│   │       ├── chats/
-│   │       │   ├── page.tsx           # Chat list (/app/chats)
-│   │       │   └── [id]/
-│   │       │       ├── page.tsx       # Dashboard for a specific chat
-│   │       │       ├── graph/page.tsx # Knowledge graph (Cytoscape.js)
-│   │       │       ├── links/page.tsx # Links view with OG preview cards
-│   │       │       ├── images/page.tsx# Images masonry gallery + lightbox
-│   │       │       ├── videos/page.tsx# Videos list + YouTube embeds
-│   │       │       ├── docs/page.tsx  # Documents + PDF text preview
-│   │       │       ├── important/page.tsx # Important messages feed
-│   │       │       ├── topics/page.tsx    # Topic clusters card grid
-│   │       │       └── search/page.tsx    # Per-chat search
-│   │       ├── search/page.tsx        # Cross-chat global search
-│   │       └── settings/page.tsx      # Settings (LLM provider, API key)
-│   ├── components/
-│   │   └── ui/                        # shadcn/ui component library
+│   │       ├── layout.tsx             # Sidebar + top bar (requires session)
+│   │       ├── upload/page.tsx
+│   │       ├── chats/page.tsx
+│   │       ├── chats/[id]/page.tsx
+│   │       ├── chats/[id]/{graph,links,images,videos,docs,important,topics,search}/page.tsx
+│   │       ├── search/page.tsx
+│   │       └── settings/page.tsx
+│   ├── auth.ts                        # NextAuth v5 config: Google provider, JWT, token refresh
+│   ├── components/ui/                 # shadcn/ui
 │   ├── lib/
-│   │   ├── api.ts                     # Typed fetch wrappers for all backend endpoints
-│   │   ├── store.ts                   # Zustand global state (theme, sidebar, current chat)
-│   │   └── utils.ts                   # Utility functions (cn, formatters)
-│   ├── package.json                   # Dependencies
-│   ├── next.config.ts                 # Next.js config (API proxy to backend)
-│   └── tsconfig.json                  # TypeScript config
+│   │   ├── api.ts                     # Typed fetch client; attaches Bearer ID token
+│   │   ├── store.ts                   # Zustand global state
+│   │   └── utils.ts
+│   ├── next.config.ts                 # Rewrites /api → NEXT_PUBLIC_API_URL
+│   ├── proxy.ts
+│   └── package.json
 │
-├── backend/                           # FastAPI app (Python 3.11+)
+├── backend/                           # FastAPI, Python 3.11+
 │   ├── app/
-│   │   ├── main.py                    # FastAPI app entry point, CORS, router registration, StaticFiles
-│   │   ├── api/
-│   │   │   ├── upload.py              # POST /api/chats/upload — file ingestion + BackgroundTask
-│   │   │   ├── chats.py               # GET /api/chats, GET /api/chats/{id} — chat CRUD
-│   │   │   ├── messages.py            # GET /api/chats/{id}/messages — paginated + filtered
-│   │   │   ├── links.py               # GET /api/chats/{id}/links — links with OG data
-│   │   │   ├── important.py           # GET /api/chats/{id}/important, flag/unflag endpoints
-│   │   │   ├── clusters.py            # GET /api/chats/{id}/clusters, cluster messages
-│   │   │   ├── search.py              # GET /api/chats/{id}/search, GET /api/search (cross-chat)
-│   │   │   ├── graph.py               # GET /api/chats/{id}/graph — nodes + edges JSON
-│   │   │   ├── media.py               # Media file serving endpoints
-│   │   │   └── export.py              # Export endpoints (md, csv, json)
+│   │   ├── main.py                    # FastAPI entrypoint, CORS, routers, StaticFiles for media
+│   │   ├── api/                       # upload, chats, messages, links, important, clusters,
+│   │   │                              # search, graph, media, export
 │   │   ├── core/
-│   │   │   └── config.py              # Settings loaded from .env via pydantic-settings
-│   │   ├── models/
-│   │   │   └── db.py                  # SQLAlchemy 2.0 ORM models for all 8 tables
+│   │   │   ├── config.py              # Env-driven settings (paths, providers, OAuth, CORS)
+│   │   │   └── auth.py                # Google ID token verification + require_owned_chat
+│   │   ├── models/db.py               # SQLAlchemy 2.0 ORM (chats.owner_id, etc.)
 │   │   ├── services/
-│   │   │   ├── parser.py              # WhatsApp .txt parser — handles all edge cases
-│   │   │   ├── classifier.py          # Message type classifier — regex + extension detection
-│   │   │   ├── og_fetcher.py          # Async Open Graph metadata fetcher (httpx, rate-limited)
-│   │   │   ├── pdf_extractor.py       # PyMuPDF PDF text extraction
-│   │   │   ├── tagger.py              # Importance tagger — keyword + emoji triggers
-│   │   │   ├── embedder.py            # sentence-transformers embeddings (local CPU)
-│   │   │   ├── clusterer.py           # HDBSCAN / K-Means topic clustering
-│   │   │   ├── llm.py                 # LLM abstraction — Gemini Flash or Ollama
-│   │   │   ├── fts_builder.py         # SQLite FTS5 index builder
-│   │   │   ├── semantic_search.py     # Numpy cosine similarity semantic search
-│   │   │   └── graph_builder.py       # Graph node/edge computation from SQLite
-│   │   └── tasks/
-│   │       └── pipeline.py            # 10-step processing pipeline as FastAPI BackgroundTask
-│   ├── alembic/                       # Database migrations
-│   │   ├── env.py
-│   │   └── versions/                  # Migration files
-│   ├── tests/
-│   │   ├── conftest.py                # Pytest fixtures
-│   │   ├── test_parser.py             # 40 parser unit tests
-│   │   ├── test_classifier.py         # 37 classifier unit tests
-│   │   └── sample_chat.txt            # Sample WhatsApp export for testing
-│   ├── data/                          # GITIGNORED — all user data lives here
-│   │   ├── knowledge.db               # SQLite database
-│   │   └── media/                     # Extracted media files
-│   ├── requirements.txt               # Python dependencies (pinned versions)
-│   ├── alembic.ini                    # Alembic configuration
-│   └── .env                           # Environment variables (GITIGNORED)
+│   │   │   ├── parser.py
+│   │   │   ├── classifier.py
+│   │   │   ├── og_fetcher.py
+│   │   │   ├── pdf_extractor.py
+│   │   │   ├── tagger.py
+│   │   │   ├── embedder.py            # Gemini (gemini-embedding-001) or local sentence-transformers
+│   │   │   ├── clusterer.py
+│   │   │   ├── llm.py                 # Gemini 2.0 Flash with Ollama fallback
+│   │   │   ├── fts_builder.py
+│   │   │   ├── semantic_search.py
+│   │   │   └── graph_builder.py
+│   │   └── tasks/pipeline.py          # 10-step BackgroundTask pipeline
+│   ├── alembic/versions/              # 001_initial_schema, 002_add_owner_id_to_chats
+│   ├── tests/                         # pytest (parser + classifier)
+│   ├── data/                          # gitignored — DB + media
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   └── .env                           # gitignored
 │
-├── Project-knowledge-whatsapp/        # Project documentation
-│   ├── project-knowledge.md           # Full project specification
-│   ├── roadmap.md                     # Sprint-by-sprint roadmap
-│   ├── sprint-tracker.md              # Live progress tracker
-│   └── how-to-run-guide.md            # Detailed run guide with PowerShell commands
-│
-├── .gitignore                         # Excludes data/, .env, node_modules/, __pycache__/
-└── README.md                          # This file
+├── render.yaml                        # Render deployment (backend)
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ---
 
 ## Environment Variables Reference
 
-All variables go in `backend/.env`. Only `GEMINI_API_KEY` is required — everything else has sensible defaults.
+### Backend (`backend/.env`)
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GEMINI_API_KEY` | Yes (unless using Ollama) | — | Free API key from [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| `LLM_PROVIDER` | No | `gemini` | Set to `ollama` to run fully offline |
-| `OLLAMA_BASE_URL` | Only if Ollama | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | Only if Ollama | `llama3` | Ollama model name |
-| `DATA_DIR` | No | `./data` | Root directory for all user data |
-| `MEDIA_DIR` | No | `./data/media` | Directory for extracted media files |
-| `DB_PATH` | No | `./data/knowledge.db` | SQLite database file path |
-| `BACKEND_PORT` | No | `8000` | FastAPI server port |
-| `FRONTEND_PORT` | No | `3000` | Next.js dev server port |
+| `GOOGLE_CLIENT_ID` | **Yes** | — | OAuth 2.0 Web Client ID. Backend verifies the `aud` claim against this. Must match the frontend's `GOOGLE_CLIENT_ID`. |
+| `GEMINI_API_KEY` | Yes (unless Ollama + local) | — | Free key from [aistudio.google.com](https://aistudio.google.com/app/apikey). Used for cluster labeling and (in `gemini` mode) embeddings. |
+| `LLM_PROVIDER` | No | `gemini` | `gemini` or `ollama` |
+| `OLLAMA_BASE_URL` | If Ollama | `http://localhost:11434` | |
+| `OLLAMA_MODEL` | If Ollama | `llama3` | |
+| `EMBEDDING_PROVIDER` | No | `gemini` | `gemini` (production) or `local` (dev / offline) |
+| `EMBEDDING_MODEL` | No | `all-MiniLM-L6-v2` | For `local`, any sentence-transformers model. For `gemini`, defaults to `gemini-embedding-001`. |
+| `EMBEDDING_BATCH_SIZE` | No | `64` | Capped at 100 for Gemini. |
+| `EMBEDDING_MIN_INTERVAL` | No | `0.65` | Seconds between Gemini calls. Default ≈ 92 RPM (under free-tier 100 RPM). Raise on paid tier. |
+| `DATA_DIR` | No | `./data` | Root data dir. On Render, set to `/data`. |
+| `MEDIA_DIR` | No | `./data/media` | |
+| `DB_PATH` | No | `./data/knowledge.db` | |
+| `BACKEND_PORT` | No | `8000` | |
+| `FRONTEND_PORT` | No | `3000` | |
+| `FRONTEND_ORIGIN` | Production | `http://localhost:3000` | Comma-separated CORS origins (e.g. your Vercel URL). |
+| `ALLOWED_ORIGIN_REGEX` | No | `https://.*\.vercel\.app` | Regex for dynamic origins (Vercel preview deploys). |
 
-### Using Ollama Instead of Gemini (Fully Offline)
+### Frontend (`frontend/.env.local` or Vercel)
 
-If you want zero internet dependency after setup:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `AUTH_SECRET` | **Yes** | NextAuth JWT signing secret. Generate with `openssl rand -base64 32`. |
+| `AUTH_URL` | Production | Public URL (e.g. `https://your-app.vercel.app`). |
+| `AUTH_TRUST_HOST` | Production | `true` |
+| `GOOGLE_CLIENT_ID` | **Yes** | Same value as backend. |
+| `GOOGLE_CLIENT_SECRET` | **Yes** | OAuth client secret from Google Cloud Console. |
+| `NEXT_PUBLIC_API_URL` | **Yes** | Backend URL. Drives both the Next rewrite proxy and the direct upload target (uploads bypass Vercel's 4.5 MB proxy limit). |
 
-```bash
-# Install Ollama from https://ollama.com
-ollama pull llama3
+### Running Fully Offline (No Internet After Setup)
 
-# Then in backend/.env:
+```env
+# backend/.env
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
+
+Then `ollama pull llama3` once. Google sign-in still requires internet at sign-in time, but ingestion afterwards is offline.
 
 ---
 
 ## Database Schema
 
-The app uses a single SQLite file at `data/knowledge.db` with these tables:
+Single SQLite file at `data/knowledge.db`:
 
 | Table | Purpose |
 |-------|---------|
-| `chats` | One row per uploaded chat export (id, name, type, status, message count, date range) |
-| `senders` | Unique senders per chat (display name, phone number) |
-| `messages` | Every parsed message (content, timestamp, type, importance, cluster, embedding) |
-| `messages_fts` | FTS5 virtual table for full-text search (mirrors message content) |
-| `media_items` | Media file metadata (local path, MIME type, size, extracted text for PDFs) |
-| `links` | URL metadata (domain, OG title, OG description, OG image, link type) |
+| `chats` | One row per uploaded chat. Includes `owner_id` (Google `sub`) for multi-user scoping. |
+| `senders` | Unique senders per chat |
+| `messages` | Every parsed message (content, timestamp, type, importance, cluster, embedding JSON) |
+| `messages_fts` | FTS5 virtual table for full-text search |
+| `media_items` | Media file metadata (path, MIME, size, extracted PDF text) |
+| `links` | URL metadata (domain, OG title/description/image, link type) |
 | `clusters` | Topic clusters (label, summary, message count, centroid embedding) |
-| `important_flags` | Importance flags (trigger type: keyword/emoji/manual, trigger value) |
-| `pipeline_status` | Processing progress (current step, steps complete, error state) |
+| `important_flags` | Importance flags (trigger type: keyword/emoji/manual) |
+| `pipeline_status` | Live progress (current step, error state) |
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| Next.js | 16.2.6 | React framework with App Router |
-| React | 19.2.4 | UI library |
-| TypeScript | 5.x | Type safety |
-| Tailwind CSS | 4.x | Utility-first styling |
+
+| Tech | Version | Purpose |
+|------|---------|---------|
+| Next.js | 16.2.6 | React framework, App Router |
+| React | 19.2.4 | UI |
+| TypeScript | 5.x | |
+| NextAuth (Auth.js) | 5.0.0-beta.25 | Google OAuth, JWT sessions, token refresh |
+| Tailwind CSS | 4.x | |
 | shadcn/ui | 4.x | Component library |
-| Framer Motion | 12.x | Animations and page transitions |
-| Cytoscape.js | 3.33 | Interactive knowledge graph |
-| react-cytoscapejs | 2.0 | React wrapper for Cytoscape |
+| Framer Motion | 12.x | Animations |
+| Cytoscape.js + react-cytoscapejs | 3.33 / 2.0 | Knowledge graph |
 | Recharts | 3.x | Dashboard charts |
-| Zustand | 5.x | Global state management |
-| react-dropzone | 15.x | Drag-and-drop file upload |
+| Zustand | 5.x | Global state |
+| react-dropzone | 15.x | Upload |
 
 ### Backend
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| FastAPI | 0.115.12 | API framework with async support |
+
+| Tech | Version | Purpose |
+|------|---------|---------|
+| FastAPI | 0.115.12 | API framework |
 | Uvicorn | 0.34.3 | ASGI server |
-| SQLAlchemy | 2.0.41 | ORM with type-safe queries |
-| Alembic | 1.15.2 | Database migrations |
-| httpx | 0.28.1 | Async HTTP client for OG fetching |
-| beautifulsoup4 | 4.13.4 | HTML parsing for OG metadata |
-| sentence-transformers | 4.1.0 | Local sentence embeddings (CPU) |
+| SQLAlchemy | 2.0.41 | ORM |
+| Alembic | 1.15.2 | Migrations |
+| google-auth | 2.35.0 | Google ID token verification |
+| google-generativeai | 0.8.5 | Gemini Flash + Gemini embeddings |
+| sentence-transformers | 4.1.0 | Local embeddings (optional, dev-only) |
 | scikit-learn | 1.6.1 | K-Means clustering |
-| hdbscan | 0.8.40 | Density-based topic clustering |
-| numpy | 2.2.6 | Embedding matrix operations |
+| hdbscan | 0.8.40 | Density-based clustering |
+| numpy | 2.2.6 | Embedding math |
+| httpx | 0.28.1 | Async HTTP (OG fetcher) |
+| beautifulsoup4 | 4.13.4 | HTML parsing |
 | pymupdf | 1.25.5 | PDF text extraction |
-| google-generativeai | 0.8.5 | Gemini 2.0 Flash API client |
-| python-dotenv | 1.1.0 | .env file loading |
+| python-dotenv | 1.1.0 | `.env` loading |
+
+---
+
+## Deployment
+
+### Backend → Render
+
+`render.yaml` is checked in.
+
+- `rootDir: backend`
+- `buildCommand: pip install -r requirements.txt` (build phase only — the persistent disk is **not** mounted during build, so migrations cannot run here)
+- `startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- 1 GB persistent disk mounted at `/data`
+
+Set in the Render dashboard (do not commit secrets):
+
+- `GOOGLE_CLIENT_ID`
+- `GEMINI_API_KEY`
+- `FRONTEND_ORIGIN` (your Vercel URL, comma-separated if multiple)
+- `DATA_DIR=/data`
+- `MEDIA_DIR=/data/media`
+- `DB_PATH=/data/knowledge.db`
+- `EMBEDDING_PROVIDER=gemini` (free tier has 512 MB RAM; the local sentence-transformers provider will OOM)
+
+### Frontend → Vercel
+
+Set in the Vercel project env:
+
+- `AUTH_SECRET`, `AUTH_URL`, `AUTH_TRUST_HOST=true`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `NEXT_PUBLIC_API_URL` = your Render service URL
+
+Add `https://<your-app>.vercel.app/api/auth/callback/google` to the OAuth client's authorized redirect URIs in Google Cloud Console.
 
 ---
 
@@ -474,50 +534,61 @@ The app uses a single SQLite file at `data/knowledge.db` with these tables:
 
 ```bash
 cd backend
-.\venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate.ps1   # or: source venv/bin/activate
 pytest tests/ -v
 ```
 
-The test suite covers the WhatsApp parser (40 tests) and message classifier (37 tests).
+Covers the parser (40 tests) and classifier (37 tests).
 
 ---
 
 ## Troubleshooting
 
-**`sentence-transformers` model download is slow on first run**
-The `all-MiniLM-L6-v2` model (~90MB) downloads automatically on first use. Subsequent runs use the cached version. This is expected behavior.
+**Sign-in loops back to the landing page**
+Make sure `AUTH_SECRET` is set in `frontend/.env.local`, your Google OAuth client lists `http://localhost:3000/api/auth/callback/google` (or your Vercel callback) as an authorized redirect URI, and `GOOGLE_CLIENT_ID` is identical on both frontend and backend.
+
+**Backend returns 401 on every API call**
+The `Authorization: Bearer <id_token>` header is missing or the token has expired and the refresh failed. Sign out and sign back in. Confirm `GOOGLE_CLIENT_ID` matches between the two services.
+
+**Render backend OOMs during embedding**
+You are on the free tier (512 MB RAM) with `EMBEDDING_PROVIDER=local`. Switch to `gemini` — local sentence-transformers + PyTorch needs ~500 MB.
+
+**Gemini embeddings hit the daily 1,000-request quota during dev**
+Switch to `EMBEDDING_PROVIDER=local` in `backend/.env`. You'll need to re-upload chats because the embedding dimensions differ (768 vs 384).
+
+**Upload fails on Vercel with "Request Entity Too Large"**
+Vercel's serverless proxy caps bodies at 4.5 MB. `uploadChat()` already POSTs directly to `NEXT_PUBLIC_API_URL` to bypass this — make sure that variable is set in the Vercel project env to your Render URL (not left blank).
+
+**Frontend shows "Failed to fetch"**
+Backend isn't running on `8000`, or CORS is blocking the request. Confirm `FRONTEND_ORIGIN` on the backend includes your frontend URL (comma-separated for multiple).
+
+**`hdbscan` install fails on Windows**
+`pip install hdbscan --no-build-isolation`. If it still fails, the clusterer auto-falls back to K-Means.
 
 **`alembic upgrade head` fails with "no such table"**
-Make sure you're running the command from inside the `backend/` directory with the virtual environment activated.
+Run it from inside `backend/` with the venv active.
 
-**Frontend shows "Failed to fetch" errors**
-Ensure the backend is running on port 8000 before starting the frontend. Check that CORS is not blocked — the backend is configured to allow `localhost:3000`.
-
-**`hdbscan` installation fails on Windows**
-Try installing with: `pip install hdbscan --no-build-isolation`. If it still fails, the app will automatically fall back to K-Means clustering.
-
-**Gemini API returns rate limit errors**
-The free tier allows 15 requests/minute and 1,500/day. For large chats with many clusters, the labeling step automatically adds a 4-second delay between calls to stay within limits.
-
-**PowerShell execution policy error when activating venv**
-Run this once in PowerShell as Administrator:
+**PowerShell venv activation blocked**
+Once, as Administrator:
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
+**Gemini cluster-labeling rate-limit (free tier)**
+Free tier is 15 req/min and 1,500/day. `services/llm.py` enforces a 4-second floor between calls.
+
 ---
 
-## What's Not Included (Future Phases)
+## Roadmap / Not Yet Included
 
 - WhatsApp Business API / real-time sync
-- Voice note transcription
-- Conversational AI chatbot over the knowledge base
-- Browser extension or mobile app
-- Multi-user access or public sharing
-- Any cloud database, external storage, or third-party auth
+- Voice note transcription (audio is stored but not transcribed)
+- Conversational chatbot over the knowledge base
+- Browser extension or native mobile app
+- Multi-user *shared* workspaces (chats are per-Google-user; no cross-user sharing yet)
 
 ---
 
 ## License
 
-MIT — your data stays on your machine. No cloud, no tracking, no subscriptions.
+MIT.

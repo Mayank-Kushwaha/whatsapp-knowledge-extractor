@@ -46,3 +46,7 @@ htmlcov/
 *.log
 .vercel
 
+# Internal project docs / sprint tracking (not for public repo)
+Project-knowledge-whatsapp/
+whatsapp-knowledge-extractor-sprint-tracker.md
+

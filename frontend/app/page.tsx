@@ -142,6 +142,18 @@ export default function LandingPage() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="https://mayank-kushwaha.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative flex items-center gap-2 overflow-hidden rounded-full border border-amber-300/30 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 px-4 py-2 text-sm font-medium text-amber-50 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_rgba(251,146,60,0.18)] transition-all duration-300 hover:border-amber-200/55 hover:from-amber-500/25 hover:via-orange-500/25 hover:to-rose-500/25 hover:text-white hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_18px_40px_rgba(251,113,133,0.28)]"
+            aria-label="Visit Mayank's portfolio"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.22),transparent_42%)] opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
+            <Sparkles className="relative z-10 h-3.5 w-3.5 text-amber-200" />
+            <span className="relative z-10 hidden sm:inline">Portfolio</span>
+            <ArrowRight className="relative z-10 h-3 w-3 -rotate-45 text-amber-200 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </a>
           <Link
             href="/app/search"
             className="group relative flex items-center gap-2 overflow-hidden rounded-full border border-cyan-400/20 bg-gradient-to-r from-sky-500/12 via-cyan-400/10 to-violet-500/12 px-4 py-2 text-sm font-medium text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_rgba(34,211,238,0.12)] transition-all duration-300 hover:border-cyan-300/35 hover:from-sky-500/20 hover:via-cyan-400/18 hover:to-violet-500/20 hover:text-white hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_18px_40px_rgba(59,130,246,0.18)]"
