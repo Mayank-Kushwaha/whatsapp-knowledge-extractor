@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Chat, Message, Sender, get_db
 
 router = APIRouter(prefix="/api/chats", tags=["messages"])
@@ -70,19 +71,18 @@ async def get_messages(
     end_date: Optional[str] = Query(None, description="Filter to date (ISO format)"),
     sort: str = Query("asc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get paginated messages for a chat with optional filters.
-    
+
     Supports filtering by:
       - type: text, link, image, video, pdf, etc.
       - sender_id or sender_name
       - is_important: true/false
       - start_date / end_date: ISO date strings
     """
-    # Verify chat exists
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    # Verify chat exists and is owned by the current user
+    chat = require_owned_chat(db, chat_id, user)
     
     # Build query
     query = db.query(Message).filter(Message.chat_id == chat_id)

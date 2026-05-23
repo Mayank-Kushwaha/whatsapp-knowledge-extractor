@@ -48,6 +48,27 @@ const API_BASE =
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ---------------------------------------------------------------------------
+// Auth — attach the Google ID token from the NextAuth session to every
+// backend request so FastAPI's get_current_user dependency can verify it.
+// `getSession` is imported dynamically because lib/api.ts is consumed by
+// both client and server components; dynamic import keeps this client-only.
+// ---------------------------------------------------------------------------
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const { getSession } = await import("next-auth/react");
+    const session = (await getSession()) as
+      | (null | { idToken?: string })
+      | undefined;
+    const idToken = session?.idToken;
+    return idToken ? { Authorization: `Bearer ${idToken}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Generic helpers
 // ---------------------------------------------------------------------------
 
@@ -55,9 +76,11 @@ async function apiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
+  const auth = await authHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...auth,
       ...options?.headers,
     },
     ...options,
@@ -424,9 +447,11 @@ export async function uploadChat(
     formData.append("chat_id", String(options.chatId));
   }
 
+  const auth = await authHeaders();
   const res = await fetch(`${UPLOAD_URL}/api/chats/upload`, {
     method: "POST",
     body: formData,
+    headers: { ...auth },
   });
 
   if (!res.ok) {
@@ -438,12 +463,12 @@ export async function uploadChat(
 }
 
 /**
- * Create an SSE EventSource for pipeline progress.
- * Returns the EventSource — caller manages onmessage/onerror.
+ * Pipeline progress is exposed by polling GET /api/chats/{id} — the chat
+ * detail response carries `status` (processing|ready|error) and a
+ * `pipeline` field with current_step / steps_complete / steps_total /
+ * error. SSE was removed because EventSource cannot carry an
+ * Authorization header.
  */
-export function createProgressStream(chatId: number): EventSource {
-  return new EventSource(`${API_BASE}/api/chats/${chatId}/progress`);
-}
 
 export async function deleteChat(
   chatId: number

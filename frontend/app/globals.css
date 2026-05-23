@@ -180,6 +180,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Lock horizontal scrolling everywhere — pages should only scroll on
+     the y-axis. Any overflow is contained by inner scroll containers. */
+  html,
+  body {
+    @apply overflow-x-hidden;
+    max-width: 100vw;
+  }
   body {
     @apply bg-background text-foreground;
   }

@@ -608,46 +608,47 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
   const importantCount = chat.type_breakdown.find((t) => t.type === "important")?.count || 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Header — stacks on small screens so the title gets full width and
+          action buttons get their own row instead of being clipped. */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8 flex items-start justify-between gap-4"
+        className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4"
       >
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{chat.name}</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">{chat.name}</h1>
           <p className="text-sm text-muted-foreground mt-1">{dateRange}</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end sm:flex-shrink-0">
           <Link href={`/app/chats/${chatId}/graph`}>
             <motion.div
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/18 hover:border-rose-500/35 transition-all duration-200"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/18 hover:border-rose-500/35 transition-all duration-200"
             >
               <Network className="w-4 h-4" />
-              <span className="hidden sm:inline">Graph</span>
+              <span>Graph</span>
             </motion.div>
           </Link>
           <Link href={`/app/chats/${chatId}/search`}>
             <motion.div
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/18 hover:border-blue-500/35 transition-all duration-200"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/18 hover:border-blue-500/35 transition-all duration-200"
             >
               <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Search</span>
+              <span>Search</span>
             </motion.div>
           </Link>
           <Link href={`/app/upload?chatId=${chatId}`}>
             <motion.div
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/18 hover:border-amber-500/35 transition-all duration-200"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/18 hover:border-amber-500/35 transition-all duration-200"
             >
               <Pencil className="w-4 h-4" />
-              <span className="hidden sm:inline">Update</span>
+              <span>Update</span>
             </motion.div>
           </Link>
           <motion.button
@@ -655,10 +656,10 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
             whileTap={{ scale: deleting ? 1 : 0.96 }}
             onClick={handleDelete}
             disabled={deleting}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/18 hover:border-red-500/35 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/18 hover:border-red-500/35 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-4 h-4" />
-            <span className="hidden sm:inline">{deleting ? "Deleting..." : "Delete"}</span>
+            <span>{deleting ? "Deleting..." : "Delete"}</span>
           </motion.button>
         </div>
       </motion.div>

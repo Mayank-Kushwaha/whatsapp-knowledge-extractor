@@ -1,7 +1,6 @@
 """Upload API routes — handles .txt and .zip WhatsApp exports.
 
 POST /api/chats/upload   — Upload a .txt or .zip file
-GET  /api/chats/{id}/progress — SSE endpoint for pipeline progress
 """
 
 import logging
@@ -14,10 +13,10 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.core.config import MEDIA_DIR
 from app.models.db import Chat, PipelineStatus, get_db
 from app.tasks.pipeline import run_pipeline
@@ -130,6 +129,7 @@ async def upload_chat(
     file: UploadFile = File(...),
     chat_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Upload a WhatsApp chat export (.txt or .zip).
 
@@ -157,9 +157,7 @@ async def upload_chat(
     chat_name = Path(filename).stem or "Untitled Chat"
 
     if is_update:
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
-        if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
+        chat = require_owned_chat(db, chat_id, user)
 
         media_dir = MEDIA_DIR / str(chat.id)
         if media_dir.exists():
@@ -178,6 +176,7 @@ async def upload_chat(
         resolved_chat_id = chat.id
     else:
         chat = Chat(
+            owner_id=user["sub"],
             name=chat_name,
             type="personal",
             created_at=datetime.utcnow(),
@@ -320,82 +319,3 @@ def _process_upload_and_run_pipeline(
         return
 
     run_pipeline(chat_id=chat_id, chat_text=chat_text, media_dir=str(media_p))
-
-
-@router.get("/{chat_id}/progress")
-async def stream_progress(
-    chat_id: int,
-    db: Session = Depends(get_db),
-):
-    """SSE endpoint to stream pipeline progress for a chat.
-
-    Sends events like:
-      data: {"step": 1, "step_name": "Parsing messages", "steps_complete": 0, "steps_total": 10, "status": "processing"}
-
-    Final event:
-      data: {"step": 10, "step_name": "Complete", "steps_complete": 10, "steps_total": 10, "status": "ready"}
-    """
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-
-    import asyncio
-    import json
-
-    from app.tasks.pipeline import PIPELINE_STEPS
-
-    async def event_generator():
-        """Generate SSE events by polling pipeline_status."""
-        last_step = -1
-
-        while True:
-            poll_db = SessionLocal()
-            try:
-                status = poll_db.query(PipelineStatus).filter(
-                    PipelineStatus.chat_id == chat_id
-                ).first()
-
-                chat_obj = poll_db.query(Chat).filter(Chat.id == chat_id).first()
-
-                if not status or not chat_obj:
-                    yield f"data: {json.dumps({'error': 'Status not found'})}\n\n"
-                    break
-
-                current_step = status.current_step
-
-                if current_step != last_step:
-                    last_step = current_step
-                    step_name = PIPELINE_STEPS.get(current_step, f"Step {current_step}")
-
-                    event_data = {
-                        "step": current_step,
-                        "step_name": step_name,
-                        "steps_complete": status.steps_complete,
-                        "steps_total": status.steps_total,
-                        "status": chat_obj.status,
-                    }
-
-                    if status.error:
-                        event_data["error"] = status.error
-
-                    yield f"data: {json.dumps(event_data)}\n\n"
-
-                if chat_obj.status in ("ready", "error"):
-                    break
-
-            finally:
-                poll_db.close()
-
-            await asyncio.sleep(0.5)
-
-    from app.models.db import SessionLocal
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )

@@ -330,7 +330,7 @@ export default function ImportantPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}

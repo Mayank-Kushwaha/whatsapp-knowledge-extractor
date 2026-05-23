@@ -78,6 +78,7 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(50), default="personal")  # personal | group
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

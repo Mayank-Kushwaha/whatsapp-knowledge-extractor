@@ -52,9 +52,22 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
+# Auth — Google OAuth 2.0 Client ID issued in Google Cloud Console.
+# This is the audience claim the backend verifies on incoming Google ID
+# tokens. Must match the GOOGLE_CLIENT_ID configured in the frontend's
+# NextAuth Google provider.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+
 # Embedding
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
+
+# Embedding provider: "gemini" uses Google's hosted embedding API
+# (gemini-embedding-001); "local" uses a CPU-resident sentence-transformers
+# model. Local is free with no quotas but needs ~500MB of RAM for the model
+# and PyTorch, so it's intended for development. On Render free tier (512MB
+# RAM) keep this set to "gemini" or upgrade the plan.
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
 
 # Ensure directories exist at runtime.
 # Wrapped in try/except so that importing this module during the build phase

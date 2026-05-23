@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Chat, Link, Message, Sender, get_db
 
 router = APIRouter(prefix="/api/chats", tags=["links"])
@@ -65,11 +66,10 @@ async def get_links(
     end_date: Optional[str] = Query(None, description="Filter to date (ISO)"),
     sort: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get all links for a chat with OG metadata."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
 
     query = (
         db.query(Link)
@@ -150,11 +150,10 @@ async def get_links(
 async def get_link_domains(
     chat_id: int,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get domain breakdown for links in a chat."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
 
     domain_counts = (
         db.query(Link.domain, func.count(Link.id))

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { signIn, useSession } from "next-auth/react";
 import {
   MessageSquareText,
   Search,
@@ -117,6 +118,9 @@ const typeIcons = [
 // ---------------------------------------------------------------------------
 
 export default function LandingPage() {
+  const { status: sessionStatus } = useSession();
+  const isAuthed = sessionStatus === "authenticated";
+
   return (
     <div className="min-h-screen bg-background relative pt-[72px]">
       {/* Background mesh gradient */}
@@ -204,19 +208,43 @@ export default function LandingPage() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="mt-10 flex flex-col sm:flex-row gap-4"
         >
-          <Link href="/app/upload">
+          {isAuthed ? (
+            <Link href="/app/upload">
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="group relative inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full font-medium text-white overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] animate-shimmer" />
+                <span className="relative z-10 flex items-center gap-2.5">
+                  <Upload className="w-4.5 h-4.5" />
+                  Upload Chat Export
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </span>
+              </motion.div>
+            </Link>
+          ) : (
+            <motion.button
+              onClick={() => signIn("google", { callbackUrl: "/app/upload" })}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full font-medium text-white overflow-hidden cursor-pointer"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] animate-shimmer" />
+              <span className="relative z-10 flex items-center gap-2.5">
+                Sign in with Google
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </motion.button>
+          )}
+          <Link href="/app/chats/0">
             <motion.div
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="group relative inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full font-medium text-white overflow-hidden"
+              className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full font-medium bg-white/6 border border-white/10 hover:bg-white/10 transition-all"
             >
-              {/* Gradient bg */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] animate-shimmer" />
-              <span className="relative z-10 flex items-center gap-2.5">
-                <Upload className="w-4.5 h-4.5" />
-                Upload Chat Export
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </span>
+              Try the demo
+              <ArrowRight className="w-4 h-4" />
             </motion.div>
           </Link>
           <Link href="/docs">

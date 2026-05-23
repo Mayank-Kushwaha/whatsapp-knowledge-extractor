@@ -41,9 +41,9 @@ def _gemini_generate(prompt: str) -> str:
     
     try:
         import google.generativeai as genai
-        
+
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         
         response = model.generate_content(prompt)
         _last_gemini_call_time = time.time()

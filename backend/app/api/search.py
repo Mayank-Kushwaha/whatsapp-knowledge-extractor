@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Chat, Link, Message, Sender, get_db
 
 logger = logging.getLogger(__name__)
@@ -120,19 +121,24 @@ def _fts5_search(
     db: Session,
     query: str,
     chat_id: Optional[int] = None,
+    chat_ids: Optional[list[int]] = None,
     limit: int = 50,
 ) -> list[int]:
-    """Perform FTS5 keyword search, returning matching message IDs."""
+    """Perform FTS5 keyword search, returning matching message IDs.
+
+    If chat_id is provided, restrict to that chat. If chat_ids is
+    provided, restrict to messages belonging to any chat in the list
+    (used for global search scoped to the current user's chats).
+    """
     if not query or len(query.strip()) < 2:
         return []
-    
+
     # Escape FTS5 special characters
     clean_query = re.sub(r'[^\w\s]', ' ', query).strip()
     if not clean_query:
         return []
-    
-    # Build FTS5 MATCH query with optional chat filter
-    if chat_id:
+
+    if chat_id is not None:
         sql = """
         SELECT messages_fts.rowid
         FROM messages_fts
@@ -143,6 +149,23 @@ def _fts5_search(
         LIMIT :limit
         """
         params = {"query": clean_query, "chat_id": chat_id, "limit": limit}
+    elif chat_ids is not None:
+        if not chat_ids:
+            return []
+        # SQLAlchemy text() doesn't bind list params for IN cleanly across
+        # all drivers, so inline the integer IDs (they originate from the
+        # DB and are ints — safe from injection).
+        ids_csv = ",".join(str(int(cid)) for cid in chat_ids)
+        sql = f"""
+        SELECT messages_fts.rowid
+        FROM messages_fts
+        JOIN messages ON messages.id = messages_fts.rowid
+        WHERE messages_fts MATCH :query
+        AND messages.chat_id IN ({ids_csv})
+        ORDER BY rank
+        LIMIT :limit
+        """
+        params = {"query": clean_query, "limit": limit}
     else:
         sql = """
         SELECT messages_fts.rowid
@@ -152,7 +175,7 @@ def _fts5_search(
         LIMIT :limit
         """
         params = {"query": clean_query, "limit": limit}
-    
+
     try:
         result = db.execute(text(sql), params)
         return [row[0] for row in result.fetchall()]
@@ -333,8 +356,10 @@ async def search_chat(
     domain: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Search within a single chat."""
+    require_owned_chat(db, chat_id, user)
     # Parse shorthand filters from query
     clean_query, shorthand_filters = parse_shorthand_filters(q)
     
@@ -449,8 +474,18 @@ async def search_global(
     domain: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
-    """Search across all uploaded chats."""
+    """Search across all uploaded chats owned by the current user."""
+    # Scope the entire search to chats owned by this user. If they have
+    # no chats, return nothing rather than letting an empty list fall
+    # through to "all chats".
+    owned_chat_ids = [
+        cid for (cid,) in db.query(Chat.id).filter(Chat.owner_id == user["sub"]).all()
+    ]
+    if not owned_chat_ids:
+        return SearchResponse(results=[], total=0, query=q, mode=mode, filters_applied={})
+
     clean_query, shorthand_filters = parse_shorthand_filters(q)
     
     filters = {**shorthand_filters}
@@ -476,22 +511,31 @@ async def search_global(
     
     if not clean_query and filters:
         all_ids = db.query(Message.id).filter(
+            Message.chat_id.in_(owned_chat_ids),
             Message.type.notin_(["deleted", "unknown_media"]),
         ).all()
         all_msg_ids = [r[0] for r in all_ids]
         scores = {mid: 1.0 for mid in all_msg_ids}
         match_type = "filter"
     elif mode in ("keyword", "combined"):
-        keyword_ids = _fts5_search(db, clean_query, chat_id=None, limit=limit * 2)
+        keyword_ids = _fts5_search(db, clean_query, chat_ids=owned_chat_ids, limit=limit * 2)
         for i, mid in enumerate(keyword_ids):
             scores[mid] = 1.0 - (i * 0.01)
         all_msg_ids = keyword_ids
         match_type = "keyword"
-        
+
         if mode == "combined" and clean_query:
             try:
                 from app.services.semantic_search import semantic_search
-                semantic_results = semantic_search(db, clean_query, chat_id=None, top_k=limit)
+                # Semantic search across all owned chats — pass chat_id=None
+                # then filter results by owned_chat_ids.
+                semantic_results = semantic_search(db, clean_query, chat_id=None, top_k=limit * 4)
+                owned_set = set(owned_chat_ids)
+                semantic_results = [
+                    (mid, score) for (mid, score) in semantic_results
+                    if (m := db.query(Message.chat_id).filter(Message.id == mid).first())
+                    and m[0] in owned_set
+                ][:limit]
                 for mid, sim_score in semantic_results:
                     if mid in scores:
                         scores[mid] = scores[mid] * 0.6 + sim_score * 0.4
@@ -504,15 +548,26 @@ async def search_global(
     elif mode == "semantic":
         try:
             from app.services.semantic_search import semantic_search
-            semantic_results = semantic_search(db, clean_query, chat_id=None, top_k=limit)
+            semantic_results = semantic_search(db, clean_query, chat_id=None, top_k=limit * 4)
+            owned_set = set(owned_chat_ids)
+            semantic_results = [
+                (mid, score) for (mid, score) in semantic_results
+                if (m := db.query(Message.chat_id).filter(Message.id == mid).first())
+                and m[0] in owned_set
+            ][:limit]
             all_msg_ids = [mid for mid, _ in semantic_results]
             scores = {mid: score for mid, score in semantic_results}
             match_type = "semantic"
         except Exception as e:
             logger.warning(f"[Search] Semantic search failed: {e}")
             return SearchResponse(results=[], total=0, query=q, mode=mode, filters_applied=filters)
-    
+
     if filters and all_msg_ids:
+        # Re-scope filters to owned chats by passing the first chat_id is wrong;
+        # instead apply the filter then intersect with owned chats. _apply_filters
+        # already takes a chat_id, but we want to allow cross-chat filtering. The
+        # search already restricted to owned chats above, so apply filters without
+        # a single chat_id constraint and trust the upstream scoping.
         filtered_ids = _apply_filters(db, all_msg_ids, filters)
         all_msg_ids = filtered_ids
     

@@ -390,16 +390,26 @@ def classify_and_enrich_messages(
         if new_type in ("image", "video", "audio", "pdf", "document", "contact"):
             filename = classification.get("filename")
             ext = classification.get("file_ext", "")
-            
-            # Determine local path if the file exists in media_dir
+
+            # Resolve local_path RELATIVE to MEDIA_DIR. The frontend
+            # constructs URLs as `/media/<local_path>` and the FastAPI
+            # StaticFiles mount serves files relative to MEDIA_DIR, so
+            # storing absolute paths here breaks image rendering.
             local_path = None
             file_size = None
             if filename and media_dir:
                 candidate = os.path.join(media_dir, filename)
                 if os.path.exists(candidate):
-                    local_path = candidate
+                    from app.core.config import MEDIA_DIR
+                    try:
+                        local_path = os.path.relpath(candidate, str(MEDIA_DIR)).replace(os.sep, "/")
+                    except ValueError:
+                        # candidate is on a different drive than MEDIA_DIR
+                        # (shouldn't happen in practice); fall back to
+                        # just chat_id/filename.
+                        local_path = f"{chat_id}/{filename}"
                     file_size = os.path.getsize(candidate)
-            
+
             media_item = MediaItem(
                 message_id=msg.id,
                 chat_id=chat_id,

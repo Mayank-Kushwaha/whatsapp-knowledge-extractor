@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.core.config import MEDIA_DIR
 from app.models.db import Chat, Message, Sender, PipelineStatus, get_db
 
@@ -85,10 +86,11 @@ class ChatDetail(BaseModel):
 async def list_chats(
     status: Optional[str] = Query(None, description="Filter by status: processing, ready, error"),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """List all uploaded chats with summary info."""
-    query = db.query(Chat)
-    
+    query = db.query(Chat).filter(Chat.owner_id == user["sub"])
+
     if status:
         query = query.filter(Chat.status == status)
     
@@ -117,11 +119,10 @@ async def list_chats(
 async def get_chat(
     chat_id: int,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get full chat details including senders, pipeline status, and type breakdown."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
     
     # Get senders with message counts
     senders = db.query(Sender).filter(Sender.chat_id == chat_id).all()
@@ -181,11 +182,10 @@ async def get_chat(
 async def delete_chat(
     chat_id: int,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Delete a chat and all related database/media data."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
 
     media_dir = MEDIA_DIR / str(chat_id)
 

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Cluster, Message, Sender, get_db
 
 logger = logging.getLogger(__name__)
@@ -68,8 +69,10 @@ class PaginatedClusterMessages(BaseModel):
 async def get_chat_clusters(
     chat_id: int,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get all clusters for a chat."""
+    require_owned_chat(db, chat_id, user)
     clusters = db.query(Cluster).filter(Cluster.chat_id == chat_id).all()
     
     result = []
@@ -105,8 +108,10 @@ async def get_cluster_messages(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get paginated messages in a cluster."""
+    require_owned_chat(db, chat_id, user)
     # Verify cluster exists and belongs to this chat
     cluster = db.query(Cluster).filter(
         Cluster.id == cluster_id,

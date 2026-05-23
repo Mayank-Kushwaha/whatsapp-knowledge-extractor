@@ -17,12 +17,21 @@ beautifulsoup4==4.13.4
 scikit-learn==1.6.1
 hdbscan==0.8.40
 numpy==2.2.6
+# Optional local-CPU embedding fallback. Only needed if EMBEDDING_PROVIDER=local
+# (e.g. for development without hitting Gemini's free-tier daily quota of
+# 1000 embed requests). Pulls in PyTorch (~500MB) on install. Render free
+# tier (512MB RAM) will OOM with this loaded — keep EMBEDDING_PROVIDER=gemini
+# on Render unless you upgrade to a tier with more memory.
+sentence-transformers==4.1.0
 
 # PDF extraction
 pymupdf==1.25.5
 
 # LLM providers
 google-generativeai==0.8.5
+
+# Auth — Google ID token verification
+google-auth==2.35.0
 
 # Environment
 python-dotenv==1.1.0

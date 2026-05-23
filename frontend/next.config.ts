@@ -17,24 +17,45 @@ const nextConfig: NextConfig = {
   },
   // ---------------------------------------------------------------------------
   // API + media proxy rewrites
+  //
   // In production on Vercel these rewrites forward requests to the Render
   // backend. In local dev they forward to localhost:8000.
+  //
+  // Using `fallback` is load-bearing. Per Next.js's rewrite order:
+  //   1. headers / redirects / proxy
+  //   2. beforeFiles rewrites
+  //   3. static files + non-dynamic pages
+  //   4. afterFiles rewrites              <-- runs BEFORE dynamic routes
+  //   5. dynamic routes                   <-- NextAuth's [...nextauth] lives here
+  //   6. fallback rewrites                <-- only fire if nothing else matched
+  //
+  // If we used `afterFiles`, the wildcard `/api/:path*` source would match
+  // `/api/auth/session` before NextAuth's catch-all handler at
+  // `app/api/auth/[...nextauth]/route.ts` ever got a chance — so requests
+  // intended for NextAuth would be proxied to FastAPI and 404 with
+  // `{"detail":"Not Found"}`. With `fallback`, NextAuth's dynamic route
+  // wins for /api/auth/*, and everything else under /api/* (which has no
+  // local handler) falls through to FastAPI.
   // ---------------------------------------------------------------------------
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-      {
-        source: "/media/:path*",
-        destination: `${BACKEND_URL}/media/:path*`,
-      },
-      {
-        source: "/health",
-        destination: `${BACKEND_URL}/health`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: "/api/:path*",
+          destination: `${BACKEND_URL}/api/:path*`,
+        },
+        {
+          source: "/media/:path*",
+          destination: `${BACKEND_URL}/media/:path*`,
+        },
+        {
+          source: "/health",
+          destination: `${BACKEND_URL}/health`,
+        },
+      ],
+    };
   },
 
   // ---------------------------------------------------------------------------

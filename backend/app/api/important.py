@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Chat, ImportantFlag, Message, Sender, get_db
 
 router = APIRouter(prefix="/api/chats", tags=["important"])
@@ -59,11 +60,10 @@ async def get_important_messages(
     sender_id: Optional[int] = Query(None),
     sort: str = Query("desc"),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get all important-flagged messages for a chat."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
 
     query = db.query(Message).filter(
         Message.chat_id == chat_id,
@@ -130,8 +130,10 @@ async def toggle_importance(
     chat_id: int,
     message_id: int,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Toggle importance flag on a message (manual flag/unflag)."""
+    require_owned_chat(db, chat_id, user)
     msg = db.query(Message).filter(
         Message.id == message_id,
         Message.chat_id == chat_id,

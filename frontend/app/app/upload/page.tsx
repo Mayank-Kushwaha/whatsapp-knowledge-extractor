@@ -14,7 +14,7 @@ import {
   ArrowRight,
   X,
 } from "lucide-react";
-import { uploadChat, createProgressStream, PIPELINE_STEPS, getChat } from "@/lib/api";
+import { uploadChat, PIPELINE_STEPS, getChat } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
@@ -98,7 +98,6 @@ function UploadPageContent() {
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [completed, setCompleted] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const progressPollRef = useRef<number | null>(null);
   const redirectedRef = useRef(false);
 
@@ -117,8 +116,6 @@ function UploadPageContent() {
       setProcessing(false);
       setSteps(buildStepsFromProgress({ current_step: 10, steps_complete: 10, status: "ready" }));
       resetUploadState();
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
       stopPolling();
 
       setTimeout(() => {
@@ -132,8 +129,6 @@ function UploadPageContent() {
       setCompleted(false);
       setSteps(buildStepsFromProgress({ ...(data ?? {}), status: "error" }));
       resetUploadState();
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
       stopPolling();
     };
 
@@ -180,7 +175,7 @@ function UploadPageContent() {
         }
 
         if (chat.status === "error") {
-          failProgress("Pipeline error occurred", {
+          failProgress(pipeline?.error || "Pipeline error occurred", {
             current_step: pipeline?.current_step ?? initial?.current_step ?? 1,
             steps_complete: pipeline?.steps_complete ?? initial?.steps_complete ?? 0,
             steps_total: pipeline?.steps_total ?? initial?.steps_total ?? 10,
@@ -222,30 +217,6 @@ function UploadPageContent() {
       void syncFromChat();
     }, 1000);
     void syncFromChat();
-
-    eventSourceRef.current?.close();
-    const es = createProgressStream(chatId);
-    eventSourceRef.current = es;
-
-    es.onmessage = (event) => {
-      try {
-        const data: ProgressPayload = JSON.parse(event.data);
-
-        if (data.status === "error") {
-          failProgress(data.error || "Pipeline error occurred", data);
-          return;
-        }
-
-        applyProgress(data);
-      } catch {
-        // Ignore parse errors from SSE
-      }
-    };
-
-    es.onerror = () => {
-      es.close();
-      eventSourceRef.current = null;
-    };
   }, [resetUploadState, router, setUploadState]);
 
   useEffect(() => {
@@ -265,15 +236,13 @@ function UploadPageContent() {
           : Math.max((uploadProgress.step || 1) - 1, 0),
     };
 
-    if (!eventSourceRef.current && !progressPollRef.current) {
+    if (!progressPollRef.current) {
       startTrackingProgress(updateChatId, derived);
     }
   }, [isUpdateMode, updateChatId, isUploading, uploadChatId, uploadProgress, startTrackingProgress]);
 
   useEffect(() => {
     return () => {
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
       if (progressPollRef.current) {
         window.clearInterval(progressPollRef.current);
         progressPollRef.current = null;

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Chat, MediaItem, Message, Sender, get_db
 
 router = APIRouter(prefix="/api/chats", tags=["media"])
@@ -59,11 +60,10 @@ async def get_media_items(
     end_date: Optional[str] = Query(None, description="Filter to date (ISO)"),
     sort: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get paginated media items for a chat."""
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_owned_chat(db, chat_id, user)
 
     query = (
         db.query(MediaItem)

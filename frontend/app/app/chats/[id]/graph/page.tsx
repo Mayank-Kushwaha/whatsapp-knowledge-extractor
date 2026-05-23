@@ -217,7 +217,7 @@ export default function GraphPage() {
     <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
       {/* Top Bar */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between px-6 py-3 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-sm z-10">
+        className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-sm z-10">
         <div>
           <h1 className="text-xl font-bold text-slate-100">Knowledge Graph</h1>
           {graphData && (
@@ -323,7 +323,7 @@ export default function GraphPage() {
       </div>
 
       {/* Legend */}
-      <div className="px-6 py-2 border-t border-slate-800/50 bg-slate-900/80 flex gap-4 text-xs text-slate-500">
+      <div className="px-4 sm:px-6 py-2 border-t border-slate-800/50 bg-slate-900/80 flex flex-wrap gap-3 sm:gap-4 text-xs text-slate-500">
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> Senders</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Topics</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-purple-500 inline-block" /> Domains</span>

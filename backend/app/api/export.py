@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import Message, Sender, get_db
 
 logger = logging.getLogger(__name__)
@@ -61,8 +62,10 @@ async def export_chat(
     is_important: Optional[bool] = Query(None),
     cluster_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Export chat messages in the specified format."""
+    require_owned_chat(db, chat_id, user)
     messages = _get_messages(db, chat_id, type, sender_id, is_important, cluster_id)
     
     if format == "json":

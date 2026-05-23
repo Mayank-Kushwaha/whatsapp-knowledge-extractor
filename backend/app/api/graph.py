@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_owned_chat
 from app.models.db import get_db
 from app.services.graph_builder import build_graph_data
 
@@ -60,8 +61,10 @@ async def get_chat_graph(
     filter_sender: Optional[str] = Query(None),
     filter_cluster: Optional[int] = Query(None),
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Get knowledge graph data for a chat."""
+    require_owned_chat(db, chat_id, user)
     data = build_graph_data(
         db,
         chat_id,

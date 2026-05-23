@@ -1,14 +1,20 @@
-"""Sentence embedding service using Gemini's embedding API.
+"""Sentence embedding service.
 
-Generates embeddings for messages and search queries via Google's
-gemini-embedding-001 model (768 native dimensions). Stored as JSON
-arrays in the messages.embedding column.
+Two providers are supported and selected via EMBEDDING_PROVIDER:
 
-Why Gemini instead of a local sentence-transformer model: on Render's
-free tier (512 MB RAM) the process OOM-killed during step 5 because
-sentence-transformers + PyTorch pulled the resident set above the
-ceiling. Gemini moves the compute off-process; we only hold the JSON
-result. Embedding pricing is negligible (~$0.025 per 1M characters).
+- "gemini" (default): Google's hosted gemini-embedding-001, 768-dim
+  output. Free tier is capped at 100 requests/min AND 1000 requests/day
+  per project per model — fine for production with paid billing but
+  easy to exhaust during development.
+
+- "local": sentence-transformers loaded into the FastAPI process, no
+  network calls and no quotas. Default model `all-MiniLM-L6-v2` is
+  ~90MB and outputs 384-dim vectors. Requires ~500MB RAM (PyTorch +
+  model), so it OOMs on Render free tier. Intended for local dev.
+
+Embedding dimension differs by provider — embeddings written by one
+provider cannot be compared against those written by the other within
+the same chat. Switching providers requires re-uploading existing chats.
 """
 
 import json
@@ -24,15 +30,20 @@ from sqlalchemy.orm import Session
 from app.core.config import (
     EMBEDDING_BATCH_SIZE,
     EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
     GEMINI_API_KEY,
 )
 from app.models.db import Message
 
 logger = logging.getLogger(__name__)
 
-# Native output dimension of gemini-embedding-001. Stays constant across the
-# lifetime of a chat — clusterer/search assume one dimension per chat.
-EMBEDDING_DIMENSIONS = 768
+# Native output dimensions per provider. Local sentence-transformers
+# all-MiniLM-L6-v2 = 384. Gemini's gemini-embedding-001 = 768.
+_GEMINI_DIMENSIONS = 768
+_LOCAL_DIMENSIONS = 384
+EMBEDDING_DIMENSIONS = (
+    _LOCAL_DIMENSIONS if EMBEDDING_PROVIDER == "local" else _GEMINI_DIMENSIONS
+)
 
 # Gemini's embed_content accepts up to 100 inputs per call. Cap the
 # configured batch size at that ceiling.
@@ -47,6 +58,26 @@ _last_call_time = 0.0
 
 # Max retries on 429 quota errors before giving up.
 _MAX_RETRIES = 4
+
+# Cached sentence-transformers model instance for the "local" provider.
+# Loaded lazily on first use and reused for the lifetime of the process.
+_local_model = None
+
+
+def _get_local_model():
+    """Lazy-load the sentence-transformers model for the local provider."""
+    global _local_model
+    if _local_model is None:
+        from sentence_transformers import SentenceTransformer
+
+        model_name = (EMBEDDING_MODEL or "").strip()
+        # If EMBEDDING_MODEL is set to a Gemini name, ignore it for local.
+        if not model_name or model_name.startswith(("text-embedding", "gemini-embedding", "models/")):
+            model_name = "all-MiniLM-L6-v2"
+        logger.info(f"[Embedder] Loading local model '{model_name}' (first use; may take ~10s)")
+        _local_model = SentenceTransformer(model_name)
+        logger.info("[Embedder] Local model loaded.")
+    return _local_model
 
 
 def _configure_genai():
@@ -81,16 +112,31 @@ def embed_texts(
     texts: list[str],
     task_type: str = "RETRIEVAL_DOCUMENT",
 ) -> np.ndarray:
-    """Embed a list of strings via Gemini.
+    """Embed a list of strings via the configured provider.
 
     Returns a numpy matrix of shape (len(texts), EMBEDDING_DIMENSIONS).
     Caller is responsible for filtering empty/short strings beforehand.
+    `task_type` is honored by Gemini (RETRIEVAL_DOCUMENT vs RETRIEVAL_QUERY)
+    and ignored by the local provider, which produces symmetric embeddings.
     """
-    global _last_call_time
-
     if not texts:
         return np.zeros((0, EMBEDDING_DIMENSIONS), dtype=np.float32)
 
+    if EMBEDDING_PROVIDER == "local":
+        model = _get_local_model()
+        # SentenceTransformer.encode handles batching internally and
+        # respects batch_size for memory control.
+        embeddings = model.encode(
+            texts,
+            batch_size=EMBEDDING_BATCH_SIZE or 32,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+            normalize_embeddings=False,
+        )
+        return embeddings.astype(np.float32)
+
+    # Default provider: Gemini.
+    global _last_call_time
     genai = _configure_genai()
     model_id = _gemini_model_id()
     batch = min(EMBEDDING_BATCH_SIZE or _GEMINI_BATCH_LIMIT, _GEMINI_BATCH_LIMIT)
