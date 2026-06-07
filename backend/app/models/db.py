@@ -28,7 +28,7 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
-from app.core.config import DATABASE_URL, USING_TURSO
+from app.core.config import DATABASE_URL, TURSO_AUTH_TOKEN, USING_TURSO
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +38,28 @@ from app.core.config import DATABASE_URL, USING_TURSO
 if USING_TURSO:
     # libSQL/Turso: HTTP-based, no thread-affinity concerns. The
     # check_same_thread arg is SQLite-DBAPI-specific and not accepted by
-    # the libsql dialect.
-    engine = create_engine(DATABASE_URL, echo=False)
+    # the libsql dialect. The auth token MUST be passed via connect_args
+    # — the URL-query form (?authToken=...) is silently dropped by some
+    # versions of sqlalchemy-libsql, producing the misleading server-side
+    # error: `Unauthorized: empty JWT token`.
+    import logging as _logging
+
+    _log = _logging.getLogger(__name__)
+    _redacted = (
+        f"{TURSO_AUTH_TOKEN[:6]}...{TURSO_AUTH_TOKEN[-4:]}"
+        if len(TURSO_AUTH_TOKEN) >= 12
+        else "(too short!)"
+    )
+    _log.info(
+        f"[DB] Using Turso: url={DATABASE_URL!r} token={_redacted} "
+        f"(len={len(TURSO_AUTH_TOKEN)})"
+    )
+
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"auth_token": TURSO_AUTH_TOKEN},
+        echo=False,
+    )
 else:
     engine = create_engine(
         DATABASE_URL,

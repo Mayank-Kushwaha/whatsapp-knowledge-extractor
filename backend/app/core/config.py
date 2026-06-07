@@ -22,15 +22,19 @@ TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 
 if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
-    # SQLAlchemy libsql dialect format:
-    #   sqlite+libsql://<host>/?authToken=<token>&secure=true
-    # The TURSO_DATABASE_URL given by `turso db show <name> --url` looks like
-    #   libsql://<name>-<org>.turso.io
-    # Strip the scheme and rebuild for SQLAlchemy.
-    _host = TURSO_DATABASE_URL.replace("libsql://", "").replace("https://", "").strip("/")
-    DATABASE_URL = (
-        f"sqlite+libsql://{_host}/?authToken={TURSO_AUTH_TOKEN}&secure=true"
+    # sqlalchemy-libsql 0.2.0 prefers receiving the auth token via
+    # connect_args rather than the URL query string — the URL form has
+    # been observed to silently drop the token, which surfaces as the
+    # server-side error: `Unauthorized: empty JWT token`.
+    # We keep a clean URL here and pass `auth_token` separately from
+    # app/models/db.py.
+    _host = (
+        TURSO_DATABASE_URL.replace("libsql://", "")
+        .replace("https://", "")
+        .replace("wss://", "")
+        .strip("/")
     )
+    DATABASE_URL = f"sqlite+libsql://{_host}/?secure=true"
     USING_TURSO = True
 else:
     DATABASE_URL = f"sqlite:///{DB_PATH}"
