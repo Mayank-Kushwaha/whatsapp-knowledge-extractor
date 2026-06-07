@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import ALLOWED_ORIGINS, ALLOWED_ORIGIN_REGEX, MEDIA_DIR
+from app.core.config import ALLOWED_ORIGINS, ALLOWED_ORIGIN_REGEX, MEDIA_BACKEND, MEDIA_DIR
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +19,10 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — runs on startup and shutdown."""
-    # Startup: ensure media directory exists
-    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    # Startup: ensure media directory exists (only meaningful for local backend;
+    # Cloudinary mode doesn't write anything to disk here).
+    if MEDIA_BACKEND == "local":
+        MEDIA_DIR.mkdir(parents=True, exist_ok=True)
     yield
     # Shutdown: nothing to clean up
 
@@ -83,11 +85,15 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Static file serving for media
+# Static file serving for media (local backend only)
 # ---------------------------------------------------------------------------
-# Ensure the directory exists before StaticFiles tries to validate it.
-MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+# When MEDIA_BACKEND=cloudinary the media URLs stored on media_items.local_path
+# are full https Cloudinary URLs, served by their CDN — there's nothing to
+# serve from this process. Skip the mount entirely in that case so we don't
+# try to validate a non-existent directory.
+if MEDIA_BACKEND == "local":
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 # ---------------------------------------------------------------------------
 # Health endpoint

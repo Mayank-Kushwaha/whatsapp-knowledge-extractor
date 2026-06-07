@@ -13,7 +13,38 @@ MEDIA_DIR = Path(os.getenv("MEDIA_DIR", str(DATA_DIR / "media")))
 DB_PATH = os.getenv("DB_PATH", str(DATA_DIR / "knowledge.db"))
 
 # Database
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Turso (libSQL) is used when both TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are
+# set — this is the production setup on Render free tier where the local fs
+# is ephemeral. Otherwise we fall back to a local SQLite file so dev still
+# works offline. libSQL is wire-compatible with SQLite: schema, FTS5 virtual
+# tables, and Alembic migrations all run unchanged.
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+
+if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+    # SQLAlchemy libsql dialect format:
+    #   sqlite+libsql://<host>/?authToken=<token>&secure=true
+    # The TURSO_DATABASE_URL given by `turso db show <name> --url` looks like
+    #   libsql://<name>-<org>.turso.io
+    # Strip the scheme and rebuild for SQLAlchemy.
+    _host = TURSO_DATABASE_URL.replace("libsql://", "").replace("https://", "").strip("/")
+    DATABASE_URL = (
+        f"sqlite+libsql://{_host}/?authToken={TURSO_AUTH_TOKEN}&secure=true"
+    )
+    USING_TURSO = True
+else:
+    DATABASE_URL = f"sqlite:///{DB_PATH}"
+    USING_TURSO = False
+
+# Media storage backend.
+#   "local"      → write to MEDIA_DIR on disk, serve via /media StaticFiles
+#   "cloudinary" → upload to Cloudinary, store full https URL on media_items.local_path
+# Default "local" keeps existing dev behaviour. Render free tier should set
+# MEDIA_BACKEND=cloudinary because /data is not persistent without a paid disk.
+MEDIA_BACKEND = os.getenv("MEDIA_BACKEND", "local").lower()
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
 
 # Server
 BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))

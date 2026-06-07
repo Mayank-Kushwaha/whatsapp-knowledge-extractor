@@ -484,6 +484,12 @@ export async function deleteChat(
 // ---------------------------------------------------------------------------
 
 export function mediaUrl(path: string): string {
+  // When the backend uses MEDIA_BACKEND=cloudinary, media_items.local_path
+  // already holds an absolute https URL (the Cloudinary secure_url). In that
+  // case render it as-is — prefixing /media/ would produce a broken URL like
+  // /media/https://res.cloudinary.com/... and the rewrite proxy would try to
+  // forward that to the Render backend.
+  if (/^https?:\/\//i.test(path)) return path;
   return `${API_BASE}/media/${path}`;
 }
 

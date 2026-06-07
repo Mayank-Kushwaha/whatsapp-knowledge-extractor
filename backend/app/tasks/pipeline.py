@@ -124,11 +124,19 @@ def _bulk_insert_messages(
     return count
 
 
-def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) -> None:
+def run_pipeline(
+    chat_id: int,
+    chat_text: str,
+    media_dir: Optional[str] = None,
+    owner_id: Optional[str] = None,
+) -> None:
     """Run the full processing pipeline for a chat.
-    
+
     This runs as a BackgroundTask. Each step updates pipeline_status
     so the SSE endpoint can report progress.
+
+    `owner_id` (Google sub) is forwarded to the classifier so the storage
+    backend can scope uploaded media to the right user's namespace.
     """
     db = SessionLocal()
     
@@ -172,7 +180,9 @@ def run_pipeline(chat_id: int, chat_text: str, media_dir: Optional[str] = None) 
         _update_pipeline_status(db, chat_id, step=2)
         
         from app.services.classifier import classify_and_enrich_messages
-        classify_stats = classify_and_enrich_messages(db, chat_id, media_dir=media_dir)
+        classify_stats = classify_and_enrich_messages(
+            db, chat_id, media_dir=media_dir, owner_id=owner_id
+        )
         logger.info(f"[Pipeline] Chat {chat_id}: Classification done — {classify_stats}")
         
         # ── Step 3: Enrich Links (OG metadata) ─────────────────────────

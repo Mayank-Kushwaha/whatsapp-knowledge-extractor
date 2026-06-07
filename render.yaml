@@ -3,13 +3,12 @@ services:
     name: whatsapp-extractor-api
     runtime: python
     rootDir: backend
-    # Only install dependencies during build — do NOT run alembic here.
-    # The persistent disk at /data is NOT mounted during the build phase,
-    # so any attempt to write to /data (including SQLite migrations) will
-    # fail with "Read-only file system". Migrations run at startup instead.
+    # Free tier has no persistent disk. State lives in Turso (DB) and
+    # Cloudinary (media files) — both configured via env vars in the Render
+    # dashboard, not committed here.
     buildCommand: pip install -r requirements.txt
-    # At startup the persistent disk IS mounted, so alembic can write to
-    # /data/knowledge.db before the server begins accepting requests.
+    # Alembic migrations target the Turso URL when TURSO_DATABASE_URL is set,
+    # so they run safely on a stateless filesystem.
     startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: LLM_PROVIDER
@@ -18,13 +17,16 @@ services:
         value: gemini-embedding-001
       - key: EMBEDDING_BATCH_SIZE
         value: "64"
+      - key: MEDIA_BACKEND
+        value: cloudinary
       # Set these in the Render dashboard — do not commit secrets here:
       #   GEMINI_API_KEY
-      #   FRONTEND_ORIGIN   (set after you have your Vercel URL)
-      #   DATA_DIR          /data   (paid tier with persistent disk only)
-      #   MEDIA_DIR         /data/media
-      #   DB_PATH           /data/knowledge.db
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
+      #   GOOGLE_CLIENT_ID         (matches frontend NextAuth Google client)
+      #   FRONTEND_ORIGIN          (your Vercel URL)
+      #
+      #   TURSO_DATABASE_URL       libsql://<db>-<org>.turso.io  (from `turso db show <name> --url`)
+      #   TURSO_AUTH_TOKEN         (from `turso db tokens create <name>`)
+      #
+      #   CLOUDINARY_CLOUD_NAME    from Cloudinary dashboard
+      #   CLOUDINARY_API_KEY
+      #   CLOUDINARY_API_SECRET

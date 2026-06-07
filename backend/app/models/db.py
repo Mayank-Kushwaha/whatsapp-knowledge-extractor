@@ -28,26 +28,33 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
-from app.core.config import DATABASE_URL
+from app.core.config import DATABASE_URL, USING_TURSO
 
 
 # ---------------------------------------------------------------------------
 # Engine & Session
 # ---------------------------------------------------------------------------
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    echo=False,
-)
+if USING_TURSO:
+    # libSQL/Turso: HTTP-based, no thread-affinity concerns. The
+    # check_same_thread arg is SQLite-DBAPI-specific and not accepted by
+    # the libsql dialect.
+    engine = create_engine(DATABASE_URL, echo=False)
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=False,
+    )
 
-# Enable WAL mode and foreign keys for SQLite
-@event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_conn, connection_record):
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    cursor.execute("PRAGMA foreign_keys=ON;")
-    cursor.close()
+    # WAL mode + foreign keys only apply to local SQLite; Turso manages
+    # journaling server-side and rejects PRAGMA journal_mode writes.
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

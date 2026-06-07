@@ -186,14 +186,25 @@ async def delete_chat(
 ):
     """Delete a chat and all related database/media data."""
     chat = require_owned_chat(db, chat_id, user)
-
-    media_dir = MEDIA_DIR / str(chat_id)
+    owner_id = chat.owner_id
 
     db.delete(chat)
     db.commit()
 
-    if media_dir.exists():
-        shutil.rmtree(media_dir, ignore_errors=True)
+    # Drop media through the configured backend so Cloudinary uploads get
+    # cleaned up in addition to any local-disk staging area.
+    from app.services.storage import get_storage
+
+    try:
+        get_storage().delete_chat(owner_id=owner_id, chat_id=chat_id)
+    except Exception as e:
+        # Surfacing this as a 500 would leave the DB row deleted while the
+        # caller thinks the request failed. Log and continue — orphaned
+        # cloud assets are recoverable, an inconsistent UI is worse.
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[chats.delete] storage cleanup failed for chat {chat_id}: {e}"
+        )
 
     return {
         "success": True,

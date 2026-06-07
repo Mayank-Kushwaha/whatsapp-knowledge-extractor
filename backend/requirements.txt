@@ -6,6 +6,15 @@ python-multipart==0.0.20
 # Database
 sqlalchemy==2.0.41
 alembic==1.15.2
+# Turso (libSQL) dialect for SQLAlchemy — used when TURSO_DATABASE_URL is set.
+# libSQL is a SQLite fork; the same schema (incl. FTS5) and ORM queries work
+# unchanged. Without these env vars the engine falls back to a local SQLite
+# file so dev still works offline.
+sqlalchemy-libsql==0.2.0
+
+# Media storage — Cloudinary (used when MEDIA_BACKEND=cloudinary).
+# Free tier is 25 GB storage + 25 GB monthly bandwidth.
+cloudinary==1.41.0
 
 # HTTP client
 httpx==0.28.1

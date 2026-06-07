@@ -299,16 +299,21 @@ def classify_and_enrich_messages(
     db: Session,
     chat_id: int,
     media_dir: Optional[str] = None,
+    owner_id: Optional[str] = None,
 ) -> dict:
     """Classify all messages for a chat and create Link/MediaItem rows.
-    
+
     This is Step 2 of the pipeline.
-    
+
     Args:
         db: Database session
         chat_id: ID of the chat to process
-        media_dir: Path to the media directory for this chat
-        
+        media_dir: Path to the working media directory for this chat (where
+            the zip extractor staged files). May be None if no .zip media.
+        owner_id: Google `sub` for the chat owner. Required when
+            MEDIA_BACKEND=cloudinary so uploaded files are placed under the
+            owner's namespace.
+
     Returns:
         Dict with classification statistics
     """
@@ -391,24 +396,40 @@ def classify_and_enrich_messages(
             filename = classification.get("filename")
             ext = classification.get("file_ext", "")
 
-            # Resolve local_path RELATIVE to MEDIA_DIR. The frontend
-            # constructs URLs as `/media/<local_path>` and the FastAPI
-            # StaticFiles mount serves files relative to MEDIA_DIR, so
-            # storing absolute paths here breaks image rendering.
+            # Persist the file through the configured storage backend.
+            #   - Local backend writes/keeps the file under MEDIA_DIR and
+            #     returns the relative path the frontend already expects.
+            #   - Cloudinary backend uploads the file and returns its full
+            #     https secure_url.
+            # Either value goes straight into media_items.local_path.
             local_path = None
             file_size = None
             if filename and media_dir:
                 candidate = os.path.join(media_dir, filename)
                 if os.path.exists(candidate):
-                    from app.core.config import MEDIA_DIR
-                    try:
-                        local_path = os.path.relpath(candidate, str(MEDIA_DIR)).replace(os.sep, "/")
-                    except ValueError:
-                        # candidate is on a different drive than MEDIA_DIR
-                        # (shouldn't happen in practice); fall back to
-                        # just chat_id/filename.
-                        local_path = f"{chat_id}/{filename}"
                     file_size = os.path.getsize(candidate)
+                    try:
+                        from pathlib import Path as _P
+
+                        from app.services.storage import get_storage
+
+                        local_path = get_storage().save(
+                            owner_id=owner_id or "",
+                            chat_id=chat_id,
+                            media_type=new_type,
+                            filename=filename,
+                            source_path=_P(candidate),
+                        )
+                    except Exception as e:
+                        # Persistence failure shouldn't abort classification —
+                        # the MediaItem row is still useful (filename, size).
+                        # The frontend will simply render a broken-image
+                        # placeholder for this single asset.
+                        logger.warning(
+                            f"[Classifier] Storage save failed for "
+                            f"{filename} (chat {chat_id}): {e}"
+                        )
+                        local_path = None
 
             media_item = MediaItem(
                 message_id=msg.id,

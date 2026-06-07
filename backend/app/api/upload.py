@@ -225,6 +225,7 @@ async def upload_chat(
         upload_path=str(upload_path),
         is_zip=(ext == ".zip"),
         media_dir=str(media_dir),
+        owner_id=user["sub"],
     )
 
     logger.info(
@@ -246,6 +247,7 @@ def _process_upload_and_run_pipeline(
     upload_path: str,
     is_zip: bool,
     media_dir: str,
+    owner_id: str,
 ) -> None:
     """Background task: decode/extract the uploaded file, then run the pipeline.
 
@@ -318,4 +320,9 @@ def _process_upload_and_run_pipeline(
             db.close()
         return
 
-    run_pipeline(chat_id=chat_id, chat_text=chat_text, media_dir=str(media_p))
+    run_pipeline(
+        chat_id=chat_id,
+        chat_text=chat_text,
+        media_dir=str(media_p),
+        owner_id=owner_id,
+    )
