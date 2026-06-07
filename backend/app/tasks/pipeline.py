@@ -80,46 +80,47 @@ def _bulk_insert_messages(
     batch_size: int = 500,
 ) -> int:
     """Bulk insert parsed messages into the database.
-    
+
+    Uses SQLAlchemy 2.0's `db.execute(insert(Model), [dicts])` which compiles
+    to a single multi-row INSERT per batch instead of one per row. This is
+    critical on Turso (libSQL over HTTP) — `bulk_save_objects` issues N
+    round-trips and a 682-message chat takes 100+ seconds on a free-tier
+    Render→Turso path, long enough that Render recycles the worker.
+
     Returns the number of messages inserted.
     """
-    count = 0
-    batch: list[Message] = []
-    
+    from sqlalchemy import insert as sa_insert
+
+    rows: list[dict] = []
     for msg in parsed_messages:
         sender_id = sender_map.get(msg["sender"])
-        
-        # Determine initial type
+
         msg_type = "text"
         if msg["is_deleted"]:
             msg_type = "deleted"
         elif msg["is_media_omitted"]:
             msg_type = "unknown_media"
         elif msg["media_filename"]:
-            msg_type = "media"  # Will be refined in Step 2 by classifier
-        
-        message = Message(
-            chat_id=chat_id,
-            sender_id=sender_id,
-            content=msg["content"],
-            timestamp=msg["timestamp"],
-            type=msg_type,
-            is_important=False,
-            raw_line=msg["raw_line"],
+            msg_type = "media"
+
+        rows.append(
+            {
+                "chat_id": chat_id,
+                "sender_id": sender_id,
+                "content": msg["content"],
+                "timestamp": msg["timestamp"],
+                "type": msg_type,
+                "is_important": False,
+                "raw_line": msg["raw_line"],
+            }
         )
-        batch.append(message)
-        count += 1
-        
-        if len(batch) >= batch_size:
-            db.bulk_save_objects(batch)
-            db.flush()
-            batch = []
-    
-    # Insert remaining
-    if batch:
-        db.bulk_save_objects(batch)
-        db.flush()
-    
+
+    count = 0
+    for i in range(0, len(rows), batch_size):
+        chunk = rows[i : i + batch_size]
+        db.execute(sa_insert(Message), chunk)
+        count += len(chunk)
+
     db.commit()
     return count
 
