@@ -3,16 +3,27 @@
 Turn your WhatsApp chat exports into a searchable, classified, visually-graphed knowledge base. Sign in with Google, drag-and-drop a chat export, and get a topic-clustered dashboard, a knowledge graph, and multi-mode search across every link, image, video, PDF, and important note you ever sent.
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Stack](https://img.shields.io/badge/stack-Next.js%2016%20%2B%20FastAPI%20%2B%20SQLite-green)
+![Stack](https://img.shields.io/badge/stack-Next.js%2016%20%2B%20FastAPI-green)
+![DB](https://img.shields.io/badge/db-Turso%20(libSQL)%20%2F%20SQLite-lightgrey)
+![Media](https://img.shields.io/badge/media-Cloudinary%20%2F%20Local-orange)
 ![Auth](https://img.shields.io/badge/auth-Google%20OAuth-red)
 ![AI](https://img.shields.io/badge/embeddings-Gemini%20%2F%20Local-purple)
-![Deploy](https://img.shields.io/badge/deploy-Vercel%20%2B%20Render-blue)
+![Deploy](https://img.shields.io/badge/deploy-Vercel%20%2B%20Render%20(stateless)-blue)
 
 ---
 
 ## What Is This?
 
-WhatsApp Knowledge Extractor is a full-stack web app that ingests `.zip` or `.txt` WhatsApp exports and turns them into a personal, multi-user knowledge base. Every message is parsed, classified by type, enriched (OG metadata for links, text extraction for PDFs), embedded with a sentence-embedding model, clustered into semantic topics, labeled with Gemini 2.0 Flash, and indexed in SQLite FTS5. The frontend surfaces it as a dashboard with per-type views, an interactive Cytoscape knowledge graph, cross-chat search, and Markdown/CSV/JSON export.
+WhatsApp Knowledge Extractor is a full-stack web app that ingests `.zip` or `.txt` WhatsApp exports and turns them into a personal, multi-user knowledge base. Every message is parsed, classified by type, enriched (OG metadata for links, text extraction for PDFs), embedded with a sentence-embedding model, clustered into semantic topics, labeled with Gemini 2.0 Flash, and indexed in SQLite/FTS5. The frontend surfaces it as a dashboard with per-type views, an interactive Cytoscape knowledge graph, cross-chat search, and Markdown/CSV/JSON export.
+
+The backend runs against **two interchangeable storage layers**, selected at startup from environment variables:
+
+| Layer | Local / dev default | Production default (Render free tier) |
+|-------|---------------------|----------------------------------------|
+| Relational DB | Local SQLite file (`./data/knowledge.db`) | **Turso** (managed libSQL over HTTPS) |
+| Media files (images, videos, PDFs, audio, docs) | Local filesystem (`./data/media`) | **Cloudinary** (uploads + CDN) |
+
+This split makes the Render container fully **stateless** — no persistent disk is required in production. The exact same Alembic migrations, ORM queries, FTS5 virtual tables, and StaticFiles helpers run unchanged across both modes; only `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` and `MEDIA_BACKEND=cloudinary` flip them over.
 
 **The core problem it solves**: WhatsApp is the world's largest informal notes app. People paste Drive links, YouTube videos, PDFs, addresses, and reminders into chats and never find them again. This app turns that chaos into something you can actually search and browse.
 
@@ -27,14 +38,27 @@ WhatsApp Knowledge Extractor is a full-stack web app that ingests `.zip` or `.tx
 
 ## What's New
 
+- **Turso (libSQL) database backend** — set `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` and the SQLAlchemy engine targets a managed libSQL database over HTTPS instead of a local SQLite file. libSQL is wire-compatible with SQLite, so the same schema, FTS5 search tables, and Alembic migrations run unchanged. Falls back to a local `knowledge.db` automatically when the env vars are absent, so dev still works offline.
+- **Cloudinary media storage backend** — set `MEDIA_BACKEND=cloudinary` and uploaded media files (images, videos, PDFs, audio, docs) are streamed to Cloudinary instead of `./data/media`. Each file is scoped to `users/<owner_id>/chats/<chat_id>/<type>/` and `media_items.local_path` stores the returned `secure_url`. Chat deletion best-effort deletes the per-chat Cloudinary folder for all three resource types (image / video / raw).
+- **Stateless Render free-tier deployment** — with Turso + Cloudinary configured, the backend container holds no persistent state. No 1 GB disk attachment, no DATA_DIR survivorship issues across restarts.
 - **Google OAuth sign-in (NextAuth v5 / Auth.js v5)** — every chat is scoped to the signed-in user's Google `sub`. No more shared inbox; multiple people can use the same deployment without seeing each other's data.
 - **Pluggable embedding provider** — choose between hosted **Gemini embeddings (`gemini-embedding-001`, 768-dim)** for production and **local sentence-transformers (`all-MiniLM-L6-v2`, 384-dim)** for fully-offline development.
-- **Production deployment recipe** — Vercel for the frontend, Render for the backend with a persistent disk for SQLite + media, environment-driven CORS, and Vercel preview-deploy support out of the box.
+- **Vercel + Render production recipe** — environment-driven CORS, Vercel preview-deploy support, direct-to-backend uploads that bypass Vercel's 4.5 MB proxy limit.
 - **Token-rotated sessions** — Google ID tokens are refreshed automatically in the NextAuth JWT callback; users stay signed in indefinitely.
 
 ---
 
 ## Features
+
+### Storage Backends (Switch via Env Vars)
+
+| Concern | Local mode | Cloud mode |
+|---------|------------|------------|
+| Database | SQLite file at `DB_PATH` (default `./data/knowledge.db`). WAL journaling + foreign keys enabled via PRAGMA on connect. | Turso (libSQL over HTTPS). Activates when both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set. Engine URL is rewritten to `sqlite+libsql://<host>/?secure=true` and the auth token is passed via `connect_args` (NOT the URL query string — sqlalchemy-libsql 0.2.0 silently drops the latter). |
+| Media files | `MEDIA_BACKEND=local` (default). Files saved under `MEDIA_DIR/<chat_id>/`, served by FastAPI `StaticFiles` mounted at `/media`. | `MEDIA_BACKEND=cloudinary`. Files streamed to Cloudinary; `media_items.local_path` stores the `secure_url`. The `/media` mount is skipped on startup. |
+| URL rendering on the frontend | `mediaUrl()` prefixes the value with `${API_BASE}/media/`. | `mediaUrl()` detects an absolute `https://` URL and renders it as-is — no proxying. |
+
+Switching is purely env-driven — no code changes, and no migration step. The two modes can be mixed (e.g. Turso DB + local media on a paid Render disk, or local SQLite + Cloudinary for one-off testing).
 
 ### Authentication
 - Sign in with Google (NextAuth v5 Google provider)
@@ -48,7 +72,7 @@ WhatsApp Knowledge Extractor is a full-stack web app that ingests `.zip` or `.tx
 - Uploads bypass Vercel's 4.5 MB proxy body limit by POSTing directly to the backend at `NEXT_PUBLIC_API_URL`
 - Real-time 10-step progress bar powered by Server-Sent Events
 - Handles chats with 50,000+ messages
-- Extracts and stores all media files locally (images, videos, PDFs, audio, documents)
+- Extracts every embedded media file (images, videos, PDFs, audio, documents) and persists it through the configured storage backend — local filesystem in dev, Cloudinary in production
 
 ### Auto-Classification
 Every message is classified into one of:
@@ -133,7 +157,12 @@ You will also need:
 - **A Google Cloud OAuth 2.0 Client ID + Secret** (for sign-in). Create one at [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) → Credentials → Create Credentials → OAuth client ID → Web application. Add `http://localhost:3000/api/auth/callback/google` (and your production URL) as authorized redirect URIs.
 - **A free Gemini API key** for cluster labeling and (in `gemini` mode) embeddings. Get one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — no credit card required.
 
-If you prefer to run fully offline, you can swap the LLM for Ollama and the embedder for the local provider (see Environment Variables).
+**Production-only** (skip for local dev):
+
+- **A Turso account + database** for managed libSQL. Install the [Turso CLI](https://docs.turso.tech/cli/installation), then `turso db create whatsapp-extractor`, `turso db show whatsapp-extractor --url` (for `TURSO_DATABASE_URL`), and `turso db tokens create whatsapp-extractor` (for `TURSO_AUTH_TOKEN`). Free tier covers 9 GB total storage and 1 billion row reads / month.
+- **A Cloudinary account** for media hosting. Sign up at [cloudinary.com](https://cloudinary.com/), then grab `Cloud Name`, `API Key`, and `API Secret` from the dashboard's "Account Details" panel. Free tier is 25 GB storage + 25 GB monthly delivery bandwidth.
+
+If you prefer to run fully offline, you can swap the LLM for Ollama and the embedder for the local provider, and leave the Turso/Cloudinary env vars unset (the engine falls back to local SQLite + local filesystem).
 
 ---
 
@@ -198,7 +227,19 @@ EMBEDDING_PROVIDER=gemini            # "gemini" (production) or "local" (dev)
 EMBEDDING_MODEL=gemini-embedding-001 # or all-MiniLM-L6-v2 for local
 EMBEDDING_BATCH_SIZE=64
 
-# === Paths (defaults are fine for local) ===
+# === Database ===
+# Leave BOTH blank for local SQLite (default — uses DB_PATH below).
+# Set both to point at a Turso libSQL database (production).
+TURSO_DATABASE_URL=                  # libsql://<db>-<org>.turso.io
+TURSO_AUTH_TOKEN=                    # turso db tokens create <name>
+
+# === Media storage ===
+MEDIA_BACKEND=local                  # "local" (dev) or "cloudinary" (prod)
+CLOUDINARY_CLOUD_NAME=               # required if MEDIA_BACKEND=cloudinary
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+# === Paths (used for local DB/media; harmless when Turso/Cloudinary are on) ===
 DATA_DIR=./data
 MEDIA_DIR=./data/media
 DB_PATH=./data/knowledge.db
@@ -219,7 +260,9 @@ FRONTEND_ORIGIN=
 alembic upgrade head
 ```
 
-This creates `data/knowledge.db` with all tables (including `chats.owner_id` for Google-scoped ownership).
+By default this creates `data/knowledge.db` (local SQLite) with all tables including `chats.owner_id` for Google-scoped ownership.
+
+If `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set in `backend/.env`, Alembic runs the same migrations against the remote Turso database instead. The same command works for both modes; the engine in `app/models/db.py` picks the right backend at import time, and `alembic/env.py` reuses that engine so the auth token survives.
 
 ### 5. Frontend
 
@@ -366,7 +409,8 @@ whatsapp-knowledge-extractor/
 │   │   ├── models/db.py               # SQLAlchemy 2.0 ORM (chats.owner_id, etc.)
 │   │   ├── services/
 │   │   │   ├── parser.py
-│   │   │   ├── classifier.py
+│   │   │   ├── classifier.py          # writes media via services/storage.py
+│   │   │   ├── storage.py             # MediaStorage interface: LocalStorage | CloudinaryStorage
 │   │   │   ├── og_fetcher.py
 │   │   │   ├── pdf_extractor.py
 │   │   │   ├── tagger.py
@@ -407,9 +451,15 @@ whatsapp-knowledge-extractor/
 | `EMBEDDING_MODEL` | No | `all-MiniLM-L6-v2` | For `local`, any sentence-transformers model. For `gemini`, defaults to `gemini-embedding-001`. |
 | `EMBEDDING_BATCH_SIZE` | No | `64` | Capped at 100 for Gemini. |
 | `EMBEDDING_MIN_INTERVAL` | No | `0.65` | Seconds between Gemini calls. Default ≈ 92 RPM (under free-tier 100 RPM). Raise on paid tier. |
-| `DATA_DIR` | No | `./data` | Root data dir. On Render, set to `/data`. |
-| `MEDIA_DIR` | No | `./data/media` | |
-| `DB_PATH` | No | `./data/knowledge.db` | |
+| `TURSO_DATABASE_URL` | Production (Render free) | — | `libsql://<db>-<org>.turso.io`. When BOTH this and `TURSO_AUTH_TOKEN` are set, the engine switches to Turso/libSQL over HTTPS. Unset → local SQLite at `DB_PATH`. |
+| `TURSO_AUTH_TOKEN` | Production (Render free) | — | JWT from `turso db tokens create <name>`. Passed via `connect_args={"auth_token": ...}`, NOT the URL query string. |
+| `MEDIA_BACKEND` | No | `local` | `local` writes to `MEDIA_DIR` and serves via `/media`. `cloudinary` uploads to Cloudinary and stores the `secure_url` in `media_items.local_path`. |
+| `CLOUDINARY_CLOUD_NAME` | If `MEDIA_BACKEND=cloudinary` | — | From the Cloudinary dashboard. |
+| `CLOUDINARY_API_KEY` | If `MEDIA_BACKEND=cloudinary` | — | |
+| `CLOUDINARY_API_SECRET` | If `MEDIA_BACKEND=cloudinary` | — | |
+| `DATA_DIR` | No | `./data` | Root data dir for local SQLite + local media. Unused when both Turso and Cloudinary are configured. |
+| `MEDIA_DIR` | No | `./data/media` | Only meaningful when `MEDIA_BACKEND=local`. |
+| `DB_PATH` | No | `./data/knowledge.db` | Only meaningful when Turso env vars are absent. |
 | `BACKEND_PORT` | No | `8000` | |
 | `FRONTEND_PORT` | No | `3000` | |
 | `FRONTEND_ORIGIN` | Production | `http://localhost:3000` | Comma-separated CORS origins (e.g. your Vercel URL). |
@@ -442,7 +492,7 @@ Then `ollama pull llama3` once. Google sign-in still requires internet at sign-i
 
 ## Database Schema
 
-Single SQLite file at `data/knowledge.db`:
+Single relational schema — local SQLite (`data/knowledge.db`) in dev, Turso (libSQL) in production. libSQL is a SQLite fork; the table definitions, FTS5 virtual table, ORM queries, and Alembic migrations are byte-for-byte identical across both. PRAGMA-based tweaks (WAL journal, foreign keys) only run on the local engine — Turso manages journaling server-side.
 
 | Table | Purpose |
 |-------|---------|
@@ -484,6 +534,8 @@ Single SQLite file at `data/knowledge.db`:
 | Uvicorn | 0.34.3 | ASGI server |
 | SQLAlchemy | 2.0.41 | ORM |
 | Alembic | 1.15.2 | Migrations |
+| sqlalchemy-libsql | 0.2.0 | Turso (libSQL) dialect — engages when `TURSO_DATABASE_URL` is set |
+| cloudinary | 1.41.0 | Cloudinary uploads + folder deletion (used when `MEDIA_BACKEND=cloudinary`) |
 | google-auth | 2.35.0 | Google ID token verification |
 | google-generativeai | 0.8.5 | Gemini Flash + Gemini embeddings |
 | sentence-transformers | 4.1.0 | Local embeddings (optional, dev-only) |
@@ -499,24 +551,36 @@ Single SQLite file at `data/knowledge.db`:
 
 ## Deployment
 
-### Backend → Render
+### Backend → Render (Stateless, Free Tier)
 
 `render.yaml` is checked in.
 
 - `rootDir: backend`
-- `buildCommand: pip install -r requirements.txt` (build phase only — the persistent disk is **not** mounted during build, so migrations cannot run here)
+- `buildCommand: pip install -r requirements.txt`
 - `startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- 1 GB persistent disk mounted at `/data`
+- **No persistent disk required.** Database state lives in Turso, media in Cloudinary. The container filesystem is allowed to be fully ephemeral.
+- Migrations target the remote Turso URL at startup, so they run safely even with a stateless filesystem.
 
-Set in the Render dashboard (do not commit secrets):
+Committed defaults (in `render.yaml`):
 
-- `GOOGLE_CLIENT_ID`
+- `LLM_PROVIDER=gemini`
+- `EMBEDDING_MODEL=gemini-embedding-001`
+- `EMBEDDING_BATCH_SIZE=64`
+- `MEDIA_BACKEND=cloudinary`
+
+Set in the Render dashboard (do **not** commit secrets):
+
+- `GOOGLE_CLIENT_ID` — must match the frontend NextAuth Google client
 - `GEMINI_API_KEY`
-- `FRONTEND_ORIGIN` (your Vercel URL, comma-separated if multiple)
-- `DATA_DIR=/data`
-- `MEDIA_DIR=/data/media`
-- `DB_PATH=/data/knowledge.db`
-- `EMBEDDING_PROVIDER=gemini` (free tier has 512 MB RAM; the local sentence-transformers provider will OOM)
+- `FRONTEND_ORIGIN` — your Vercel URL (comma-separated if multiple)
+- `TURSO_DATABASE_URL` — from `turso db show <name> --url`
+- `TURSO_AUTH_TOKEN` — from `turso db tokens create <name>`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `EMBEDDING_PROVIDER=gemini` — free tier has 512 MB RAM; the local sentence-transformers provider will OOM
+
+If you do attach a paid persistent disk later, you can leave `MEDIA_BACKEND` unset (defaults to `local`) and `TURSO_*` blank — the same container falls back to local SQLite + local media without code changes.
 
 ### Frontend → Vercel
 
@@ -552,6 +616,21 @@ The `Authorization: Bearer <id_token>` header is missing or the token has expire
 
 **Render backend OOMs during embedding**
 You are on the free tier (512 MB RAM) with `EMBEDDING_PROVIDER=local`. Switch to `gemini` — local sentence-transformers + PyTorch needs ~500 MB.
+
+**Turso returns `Unauthorized: empty JWT token`**
+The auth token was dropped on the wire. Make sure `TURSO_AUTH_TOKEN` is set as an env var (not just embedded in `TURSO_DATABASE_URL` as a query string) — `app/models/db.py` passes it through `connect_args` because sqlalchemy-libsql 0.2.0 silently drops `?authToken=` from URLs. If you regenerated the token, restart the Render service so the new value is picked up.
+
+**`alembic upgrade head` connects to local SQLite instead of Turso**
+Both `TURSO_DATABASE_URL` AND `TURSO_AUTH_TOKEN` must be set — if either is empty, `app/core/config.py` falls back to `sqlite:///{DB_PATH}`. Confirm with `python -c "from app.core.config import DATABASE_URL, USING_TURSO; print(USING_TURSO, DATABASE_URL)"` from inside `backend/` with the venv active.
+
+**Cloudinary upload fails for PDFs / audio / .vcf files**
+These go to Cloudinary's `raw` resource type, not `image`. The storage layer already picks the right `resource_type` based on the media classification, but if you bypass it manually, anything that isn't an obvious image/video needs `resource_type="raw"` or Cloudinary's image pipeline will reject it.
+
+**Media URLs render as `/media/https://res.cloudinary.com/...` on the frontend**
+You're on an old build of `frontend/lib/api.ts` that doesn't detect absolute URLs. The current `mediaUrl()` short-circuits when the value already starts with `http(s)://`. Pull latest and redeploy the frontend.
+
+**Switched `MEDIA_BACKEND` mid-deployment and old chats now show broken media**
+`media_items.local_path` stores whatever the backend wrote at upload time — a relative path under local mode, a Cloudinary `secure_url` under cloud mode. Already-uploaded chats keep pointing at the original storage. Either keep the previous backend reachable, or re-upload affected chats.
 
 **Gemini embeddings hit the daily 1,000-request quota during dev**
 Switch to `EMBEDDING_PROVIDER=local` in `backend/.env`. You'll need to re-upload chats because the embedding dimensions differ (768 vs 384).
