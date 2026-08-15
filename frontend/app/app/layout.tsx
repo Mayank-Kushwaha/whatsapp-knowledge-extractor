@@ -33,26 +33,49 @@ function ChatItem({ chat, isActive, onClick }: { chat: Chat; isActive: boolean; 
         ? "bg-amber-400 animate-pulse"
         : "bg-red-400";
 
+  const statusLabel =
+    chat.status === "ready"
+      ? "Ready"
+      : chat.status === "processing"
+        ? "Processing"
+        : "Error";
+
   return (
     <Link href={`/app/chats/${chat.id}`} onClick={onClick}>
       <motion.div
-        whileHover={{ x: 3 }}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors duration-200 ${
+        whileHover={{ x: 4, scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        title={chat.name}
+        className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
           isActive
-            ? "bg-white/10 border border-white/10"
-            : "hover:bg-white/5"
+            ? "bg-white/10 border border-white/10 shadow-[0_0_12px_rgba(59,130,246,0.08)]"
+            : "hover:bg-white/[0.06] border border-transparent hover:border-white/5"
         }`}
       >
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-          <MessageSquareText className="w-4 h-4 text-blue-400" />
+        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+          isActive
+            ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30 shadow-sm"
+            : "bg-gradient-to-br from-blue-500/15 to-purple-500/15 group-hover:from-blue-500/25 group-hover:to-purple-500/25"
+        }`}>
+          <MessageSquareText className={`w-4 h-4 transition-colors duration-200 ${
+            isActive ? "text-blue-300" : "text-blue-400/80 group-hover:text-blue-400"
+          }`} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{chat.name}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-medium truncate" title={chat.name}>
+            {chat.name}
+          </p>
+          <p className="text-xs text-muted-foreground/70 group-hover:text-muted-foreground transition-colors duration-200">
             {chat.message_count.toLocaleString()} messages
           </p>
         </div>
-        <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className={`w-2 h-2 rounded-full ${statusColor} ring-2 ring-white/5`}
+            title={statusLabel}
+          />
+        </div>
       </motion.div>
     </Link>
   );
@@ -190,12 +213,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {/* Chat list */}
               <div className="flex-1 overflow-y-auto custom-scrollbar px-3">
-                <div className="flex items-center justify-between px-3 mb-2">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="flex items-center justify-between px-3 mb-3">
+                  <h3 className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-widest">
                     Chats
                   </h3>
                   {chats.length > 0 && (
-                    <span className="text-xs text-muted-foreground/60">
+                    <span className="text-[11px] font-medium text-muted-foreground/50 bg-white/5 px-1.5 py-0.5 rounded-md">
                       {chats.length}
                     </span>
                   )}
